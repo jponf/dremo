@@ -1,0 +1,49 @@
+Implementation ideas:
+	- Messages encode: XML
+
+	- Passive Server (accept connections and answer petitions)
+
+	- Clients manages their notifications events and timers
+		- Events:
+			- New task
+			- Task finished
+			- memory change (% threshold)
+		- Times:
+			- Max time between notifications: 3s (+/-)
+			- Min time between event notifications: 0.2s (+/-)
+
+	- Stateful server
+
+	- Connection protocol TCP (Study multicast?)
+
+	- Concurrent server (threads, processes?)
+
+	- Message between: ETX [ASCII 002], ETX [ASCII 003]
+
+XML Format (v0.01):
+	
+	<client timestamp="dd-mm-yyyy hh:mm:ss">
+		<ip> ... </ip>				[opt]
+		<os> ... </os>				[opt, once]
+		<cpu>
+			<arch> ... </arch>		[opt, once]
+			<model> ... </model>	[opt, once]
+			<usage> ... </usage>
+			<load> ... </load>
+		</cpu>
+		<name> ... </name>			[opt, once]
+		<memory>
+			<ram>
+				<total> ... </total>
+				<usage> ... </usage>
+			</ram>
+			<swap>
+				<total> ... </total>
+				<usage> ... </usage>
+			</swap>
+		</memory>
+		<tasks>
+			<add></add>
+			<del></del>
+		</tasks>
+	</client>
