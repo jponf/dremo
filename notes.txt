@@ -18,7 +18,7 @@ Implementation ideas:
 
 	- Concurrent server (threads, processes?)
 
-	- Message between: ETX [ASCII 002], ETX [ASCII 003]
+	- Message between: STX [ASCII 002], ETX [ASCII 003]
 
 XML Format (v0.01):
 	
