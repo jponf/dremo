@@ -20,30 +20,42 @@ Implementation ideas:
 
 	- Message between: STX [ASCII 002], ETX [ASCII 003]
 
-XML Format (v0.01):
+XML Format (v0.02):
 	
 	<client timestamp="dd-mm-yyyy hh:mm:ss">
-		<ip> ... </ip>				[opt]
-		<os> ... </os>				[opt, once]
+		
+		<name> ... </name>			[opt]
+
+		<os> 
+			<name> ... </name>
+			<version> ... </version>
+		</os>				
+
 		<cpu>
-			<arch> ... </arch>		[opt, once]
-			<model> ... </model>	[opt, once]
-			<usage> ... </usage>
+			<arch> ... </arch>		[opt]
+			<model> ... </model>	[opt]
+			<used> ... </used>	[1..n]
 			<load> ... </load>
 		</cpu>
-		<name> ... </name>			[opt, once]
+
+		
 		<memory>
 			<ram>
 				<total> ... </total>
-				<usage> ... </usage>
+				<used> ... </used>
+				<free> ... </free>
+				<avaliable> ... </avaliable>
 			</ram>
 			<swap>
 				<total> ... </total>
-				<usage> ... </usage>
+				<used> ... </used>
+				<free> ... </free>
 			</swap>
 		</memory>
+		
 		<tasks>
 			<add></add>
 			<del></del>
 		</tasks>
+
 	</client>

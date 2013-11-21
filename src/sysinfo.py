@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+import math
 import psutil          # https://code.google.com/p/psutil/wiki/Documentation
 import platform
+
 
 # Determines the operating system in module load time
 PYTHON_SYSTEM = platform.system()
@@ -89,7 +92,7 @@ class SysInfo:
 
 		self._cur_procs = cur_procs
 
-	def getOperatingSystemName(self):
+	def getOSName(self):
 		"""getOperatingSystemName() -> str
 
 		Returns the name of the operating system 
@@ -99,7 +102,7 @@ class SysInfo:
 
 		raise Exception("Unknown operating system")
 
-	def getOperatingSystemVersion(self):
+	def getOSVersion(self):
 		"""getOperatingSystemVersion() -> str
 
 		Returns the version of the operating system
@@ -109,6 +112,13 @@ class SysInfo:
 
 		return OS_VERSION
 
+	def getCPUArchitecture(self):
+		"""getCPUArchitecture() -> int
+
+		Returns the architecture of the CPU in bits (e.g: 32, 64)
+
+		"""
+		return int( math.log( sys.maxint*2, 2) )
 
 	def getCPUPercentage(self):
 		"""getCPUPercentage() -> [float]
@@ -128,8 +138,8 @@ class SysInfo:
 		Note: In some systems the avaliable memory is not equals to free memory
 
 		"""
-		return (self._total_mem, self._used_mem, self._avaliable_mem, \
-			self._free_mem)
+		return (self._total_mem, self._used_mem, self._free_mem, \
+			self._avaliable_mem)
 
 	def getSwapMemoryInfo(self):
 		"""getSwapMemoryInfo() -> (total, used, swap)
@@ -181,7 +191,7 @@ if __name__ == '__main__':
 	sinfo = SysInfo()
 	updateAllSysInfo(sinfo)
 
-	time.sleep(5)
+	time.sleep(1)
 
 	updateAllSysInfo(sinfo)
 
