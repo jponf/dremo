@@ -7,7 +7,7 @@ import logging
 import argparse
 
 
-__program__ = "DREMO Client"
+__program__ = "DREMO Server"
 __version__ = '0.1a'
 __author__ = "Josep Pon Farreny, Marc Piñol Pueyo"
 __license__ = "MIT"
@@ -17,12 +17,12 @@ __status__ = "Development"
 def main():
 	global options
 
-	setUpLogger()
+	setUpLogging()
 	logging.info('Logging set up')
 
 
-def setUpLogger():
-	"""setUpLogger(options) -> void
+def setUpLogging():
+	"""setUpLogging(options) -> void
 
 	Sets up the loggin module.
 
@@ -36,6 +36,7 @@ def setUpLogger():
 
 	logging.basicConfig(stream = options.logfile, level=lvl, format=format,
 						datefmt=datefmt)
+
 
 #
 #
