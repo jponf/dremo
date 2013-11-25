@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import math
+import util
 import psutil          # https://code.google.com/p/psutil/wiki/Documentation
 import platform
 
@@ -14,24 +16,98 @@ OS_IS_WIN = PYTHON_SYSTEM.lower() == 'windows'
 OS_IS_LINUX = PYTHON_SYSTEM.lower() == 'linux'
 
 OS_NAME = ""
-OS_VERSION= ""
+OS_VERSION = ""
+osGetCPULoadAvg = None
 
 if OS_IS_LINUX:
 	OS_NAME, OS_VERSION, _ = platform.linux_distribution()
+	osGetCPULoadAvg = os.getloadavg
 
 elif OS_IS_OSX:
 	OS_NAME = "Mac OS X"
 	OS_VERSION, _, _ = platform.mac_ver()
+	osGetCPULoadAvg = os.getloadavg
 
 elif OS_IS_WIN:
 	OS_NAME = "Windows"
 	OS_VERSION, _, _, _ = platform.win32_ver()
+	osGetCPULoadAvg = lambda : 0.0, 0.0, 0.0
 
-# Encapsualte system info data and methods to retrive it
+
+## Encapsulate methods to retrieve system information
 class SysInfo:
 
 	def __init__(self):
-		self._machine_name = ""
+		self._dao = SysInfoDAO()
+
+	def updateMemory(self):
+		"""updateMemory() -> void
+
+		Updates the system's memory stats.
+
+		"""
+		dao = self._dao
+
+		vmem = map(int, psutil.virtual_memory())
+		dao.setTotalVirtualMemory(vmem[0])
+		dao.setAvaliableVirtualMemory(vmem[1])
+		dao.setUsedVirtualMemory(vmem[3])
+		dao.setFreeVirtualMemory(vmem[4])
+		
+		swap = map(int, psutil.swap_memory())
+		dao.setTotalSwapMemory(swap[0])
+		dao.setUsedSwapMemory(swap[1])
+		dao.setFreeSwapMemory(swap[2])
+
+	def updateCPU(self, interval=0.1):
+		"""updateCPU() -> void
+
+		Updates the system's cpu stats.
+
+		"""
+		self._dao.setUsedCPUPercentage( psutil.cpu_percent(interval, True) )
+		self._dao.setCPULoadAvg( osGetCPULoadAvg() )
+		
+
+	def updateProcesses(self):
+		"""updateProcesses() -> void
+
+		Updates the set of current running and tasks that have finished and have
+		started since the last call to this function.
+
+		"""
+		dao = self._dao
+
+		run_procs = frozenset( [ (p.pid, p.name) \
+								for p in psutil.process_iter()] )
+		old_procs = dao.getRunningProcesses()
+
+		started_procs = run_procs - old_procs if old_procs else frozenset()
+		finished_procs = old_procs - run_procs if old_procs else frozenset()
+
+		dao.setRunningProcesses(run_procs)
+		dao.setStartedProcesses(started_procs)
+		dao.setFinishedProcesses(finished_procs)
+
+	def getSysInfoData(self):
+		"""getSystemInfoData() -> SysInfoDAO
+
+		Returns the internal reference to the DAO used to store the system
+		information.
+
+		"""
+		# TODO: Copy?
+		return self._dao
+
+
+## Encapsualte system information data 
+class SysInfoDAO:
+
+	def __init__(self):
+		self._os_name = OS_VERSION
+		self._os_version = OS_NAME
+		self._cpu_arch = int(math.log(sys.maxsize, 2) + 1)
+		self._machine_name = platform.node()
 		
 		# Virtual memory stats in bytes
 		self._total_mem = 0
@@ -44,53 +120,19 @@ class SysInfo:
 		self._used_swap = 0
 		self._free_swap = 0
 
+		# CPU stats
 		self._cpu_usage_percent = [0] * psutil.NUM_CPUS
+		self._cpu_load_avg = (0.0, 0.0, 0.0)
 
 		self._cur_procs = frozenset()
 		self._started_procs = frozenset()
 		self._finished_procs = frozenset()
 
-	def updateMemory(self):
-		"""updateMemory() -> void
-
-		Updates the system's memory stats.
-
-		"""
-		vmem = psutil.virtual_memory()
-		self._total_mem = vmem[0]		
-		self._avaliable_mem = vmem[1]
-		self._free_mem = vmem[2]
-		self._used_mem = vmem[3]
-
-		swap = psutil.swap_memory()
-		self._total_swap = swap[0]
-		self._used_swap = swap[1]
-		self._free_swap = swap[2]
-
-	def updateCPU(self, interval=0.1):
-		"""updateCPU() -> void
-
-		Updates the system's cpu stats.
-
-		"""
-		self._cpu_usage_percent = psutil.cpu_percent(interval, percpu=True)
-
-		# TODO: cpuload
-
-	def updateProcesses(self):
-		"""updateProcesses() -> void
-
-		Updates the set of current running and tasks that have finished and have
-		started since the last call to this function.
-
-		"""
-		cur_procs = frozenset( [ (p.pid, p.name) \
-								for p in psutil.process_iter()] )
-
-		self._started_procs = cur_procs - self._cur_procs
-		self._finished_procs = self._cur_procs - cur_procs
-
-		self._cur_procs = cur_procs
+	#
+	# Getters
+	#
+	def getMachineName(self):
+		return self._machine_name
 
 	def getOSName(self):
 		"""getOperatingSystemName() -> str
@@ -100,8 +142,6 @@ class SysInfo:
 		"""
 		if OS_NAME: return OS_NAME
 
-		raise Exception("Unknown operating system")
-
 	def getOSVersion(self):
 		"""getOperatingSystemVersion() -> str
 
@@ -110,73 +150,167 @@ class SysInfo:
 		"""
 		if OS_VERSION: return OS_VERSION
 
-		return OS_VERSION
-
 	def getCPUArchitecture(self):
 		"""getCPUArchitecture() -> int
 
-		Returns the architecture of the CPU in bits (e.g: 32, 64)
+		Returns the number of bits of the machine architecture.
 
 		"""
-		return int( math.log( sys.maxint*2, 2) )
+		return self._cpu_arch
 
-	def getCPUPercentage(self):
-		"""getCPUPercentage() -> [float]
+	def getTotalVirtualMemory(self):
+		return self._total_mem
 
-		Returns a list or tuple filled with the cpu usage (%) at the last call 
-		to updateCPU()
+	def getUsedVirtualMemory(self):
+		return self._used_mem
 
-		"""
-		return self._cpu_usage_percent
+	def getFreeVirtualMemory(self):
+		return self._free_mem
 
-	def getVirtualMemoryInfo(self):
-		"""getVirtualMemoryInfo() -> (total, used, free, avaliable)
+	def getAvaliableVirtualMemory(self):
+		return self._avaliable_mem
 
-		Returns a tuple with the total memory in the system, the used memory,
-		the free memory and the avaliable memory.
+	def getVirtualMemory(self):
+		"""getVirtualMemory -> (int, int, int ,int)
 
-		Note: In some systems the avaliable memory is not equals to free memory
+		Returns a tuple with all the vmemory information in this SysInfoDAO.
+
+		Tupe order: total, used, free, avaliable
 
 		"""
 		return (self._total_mem, self._used_mem, self._free_mem, \
 			self._avaliable_mem)
 
-	def getSwapMemoryInfo(self):
-		"""getSwapMemoryInfo() -> (total, used, swap)
+	def getTotalSwap(self):
+		return self._total_swap
 
-		Returns a tuple with the total swap memory, the used swap memory and 
-		the free swap memory.
+	def getUsedSwap(self):
+		return self._used_swap
+
+	def getFreeSwap(self):
+		return self._free_swap
+
+	def getSwapMemory(self):
+		"""getVirtualMemory -> (int, int, int ,int)
+
+		Returns a tuple with all the swap information in this SysInfoDAO.
+
+		Tupe order: total, used, free
 
 		"""
 		return (self._total_swap, self._used_swap, self._free_swap)
 
-	def getRunningProcesses(self):
-		"""getRunningProcesses() -> set<(pid, name)>
+	def getUsedCPUPercentage(self):
+		return self._cpu_usage_percent
 
-		Returns a set filled with processes that were running at the last call
-		to updateProcesses().
+	def getCPULoadAvg(self):
+		"""getCPUAverageLoad() -> (float, float, float)
+
+		Returns the number of processes in the system run queue averaged over
+		the last 1, 5 and 15 minutes.
 
 		"""
+		return self._cpu_load_avg
+
+	def getRunningProcesses(self):
 		return self._cur_procs
 
 	def getStartedProcesses(self):
-		"""getStartedProcesses() -> set<(pid, name)>
-
-		Returns a set filled with the processes whose execution have started
-		between two calls to updateProcesses()
-
-		"""
 		return self._started_procs
 
 	def getFinishedProcesses(self):
-		"""getFinishedProcesses() -> set<(pid, name)>
-
-		Returns a set filled with the processes whose execution have finished
-		between two calls to updateProcesses()
-
-		"""
 		return self._finished_procs
 
+	#
+	# Setters
+	#
+	def setMachineName(self, name):
+		util.assertType(name, str, "Expected string value")
+		self._machine_name = name
+
+	def setOSName(self, os_name):
+		util.assertType(os_name, str, "Expected string value")
+		self._os_name = os_name
+
+	def setOSVersion(self, os_version):
+		util.assertType(os_version, str, "Expected string value")
+		self._os_version = os_version
+
+	def setCPUArchitecture(self, arch):
+		"""getCPUArchitecture(arch: int|long)
+
+		Sets the CPU architecture. 'arch' is the number of bits of the architecture
+
+		"""
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._cpu_arch = arch
+
+	def setTotalVirtualMemory(self, mem): 
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._total_mem = mem
+		
+	def setUsedVirtualMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._used_mem = mem
+
+	def setFreeVirtualMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._free_mem = mem
+
+	def setAvaliableVirtualMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._avaliable_mem = mem
+
+	def setTotalSwapMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._total_swap = mem
+
+	def setUsedSwapMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._used_swap = mem
+
+	def setFreeSwapMemory(self, mem):
+		util.assertType(mem, (int, long), "Expected integer value")
+		self._free_swap = mem
+
+	def setUsedCPUPercentage(self, cpu_usage):
+		util.assertContainsType(cpu_usage, float, \
+			"Expected floating point numbers")
+
+		for u in cpu_usage:
+			util.assertType(u, float, "Expected floating point number")
+
+		self._cpu_usage_percent = tuple( used for used in cpu_usage )
+
+	def setCPULoadAvg(self, cpu_load):
+		util.assertContainsType(cpu_load, float, \
+			"Expected floating point numbers")
+
+		self._cpu_load_avg = cpu_load
+
+	def setRunningProcesses(self, procs):
+		util.assertAttribute(procs, '__iter__', "Expected procs to be iterable")
+
+		if isinstance(procs, frozenset):
+			self._cur_procs = procs
+		else:
+			self._cur_procs = frozenset(procs)
+
+	def setStartedProcesses(self, procs):
+		util.assertAttribute(procs, '__iter__', "Expected procs to be iterable")
+
+		if isinstance(procs, frozenset):
+			self._started_procs = procs
+		else:
+			self._started_procs = frozenset(procs)
+
+	def setFinishedProcesses(self, procs):
+		util.assertAttribute(procs, '__iter__', "Expected procs to be iterable")
+
+		if isinstance(procs, frozenset):
+			self._finished_procs = procs
+		else:
+			self._finished_procs = frozenset(procs)
 #
 #
 if __name__ == '__main__':
@@ -190,31 +324,38 @@ if __name__ == '__main__':
 
 	sinfo = SysInfo()
 	updateAllSysInfo(sinfo)
+	dao = sinfo.getSysInfoData()
 
 	time.sleep(1)
 
 	updateAllSysInfo(sinfo)
 
-	print "Operating System:", sinfo.getOperatingSystemName(), \
-								sinfo.getOperatingSystemVersion()
+	print "Machine name:", dao.getMachineName()
+	print "Operating System:", dao.getOSName(), dao.getOSVersion()
 	print
-	print "Virtual Memory (total, used, free, avaliable)"
-	print sinfo.getVirtualMemoryInfo()
+	print "Virtual Memory"
+	print "\tTotal:", dao.getTotalVirtualMemory()
+	print "\tUsed:", dao.getUsedVirtualMemory()
+	print "\tFree:", dao.getFreeVirtualMemory()
+	print "\tAvaliable:", dao.getAvaliableVirtualMemory()
 	print
 	print "Swap Memory (total, used, free)"
-	print sinfo.getSwapMemoryInfo()
+	print "\tTotal:", dao.getTotalSwap()
+	print "\tUsed:", dao.getUsedSwap()
+	print "\tFree:", dao.getFreeSwap()
 	print
-	print "CPU use percentage"
-	print sinfo.getCPUPercentage()
+	print "CPU (", dao.getCPUArchitecture(), "bits )"
+	print "\tUsage:", dao.getUsedCPUPercentage(), "%"
+	print "\tAvg Load:", dao.getCPULoadAvg()
 	print
-	print "Finished processes:"
-	for t in sinfo.getStartedProcesses():
-		print "\t", t
-	print
-	print 'Started processes:'
-	for t in sinfo.getFinishedProcesses():
-		print "\t", t
-	print
-	print 'Running processes:'
-	for t in sinfo.getRunningProcesses():
-		print "\t", t
+	# print "Finished processes:"
+	# for t in dao.getStartedProcesses():
+	# 	print "\t", t
+	# print
+	# print 'Started processes:'
+	# for t in dao.getFinishedProcesses():
+	# 	print "\t", t
+	# print
+	# print 'Running processes:'
+	# for t in dao.getRunningProcesses():
+	# 	print "\t", t

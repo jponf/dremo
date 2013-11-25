@@ -22,10 +22,8 @@ Implementation ideas:
 
 XML Format (v0.03):
 	
-	<client timestamp="dd-mm-yyyy hh:mm:ss">
+	<client name="" timestamp="dd-mm-yyyy hh:mm:ss">
 		
-		<name> ... </name>					[opt]
-
 		<os> 								[]
 			<name> ... </name>					[]
 			<version> ... </version>			[]
@@ -35,7 +33,9 @@ XML Format (v0.03):
 			<arch> ... </arch>					[opt]
 			<model> ... </model>				[opt]
 			<used> ... </used>					[1..n]
-			<load> ... </load>					[]
+			<loadavg1> ... </loadavg1>			[unix]
+			<loadavg5> ... </loadavg5>			[unix]
+			<loadavg15> ... </loadavg15>		[unix]
 		</cpu>								[]
 		
 		<memory>							[]
@@ -55,7 +55,7 @@ XML Format (v0.03):
 		<processes>							[]
 			<running name=""> pid </running>	[name opt, 1..n]
 			<started name=""> pid </started>	[name opt, 0..n]
-			<finished> pid </finished>			[0..n]
+			<finished name=""> pid </finished>	[name opt, 0..n]
 		</processes>						[]
 
 	</client>
