@@ -3,6 +3,7 @@
 
 import sys
 import common
+import socket
 import logging
 import argparse
 
@@ -19,6 +20,8 @@ def main():
 
 	setUpLogging()
 	logging.info('Logging set up')
+
+	mgsock = socket
 
 
 def setUpLogging():
@@ -37,7 +40,6 @@ def setUpLogging():
 	logging.basicConfig(stream = options.logfile, level=lvl, format=format,
 						datefmt=datefmt)
 
-
 #
 #
 if __name__ == '__main__':
@@ -46,6 +48,18 @@ if __name__ == '__main__':
 				usage=globals()['__doc__'],
 				version=__version__,
 				description='Remote resource monitoring tool client')
+
+	parser.add_argument('-ip', default='0.0.0.0', 
+				help='server listen interface ip')
+
+	parser.add_argument('-port', required=True, type=int,
+				help='server listen port')
+
+	parser.add_argument('-mg', '--multicast-group', default='227.123.456.789',
+				help='multicast group ip')
+
+	parser.add_argument('-mgp', '--multicast-group-port', default=7777,
+				help='multicast group port')
 
 	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
 				default=sys.stderr, 

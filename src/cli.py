@@ -46,9 +46,13 @@ if __name__ == '__main__':
 				version=__version__,
 				description='Remote resource monitoring tool client')
 
+	parser.add_argument('-host', required=True, help='server host name/ip')
+
+	parser.add_argument('-port', required=True, type=int, help='server port')
+
 	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
 				default=sys.stderr, 
-				help='Logging file (default [stderr])')
+				help='logging file (default [stderr])')
 
 	parser.add_argument('-d', '--debug', action='store_true', default=False,
 				help='sets the loggin leve to DEBUG')
