@@ -20,7 +20,7 @@ Implementation ideas:
 
 	- Message between: STX [ASCII 002], ETX [ASCII 003]
 
-XML Format (v0.03):
+XML Format (v0.04):
 	
 	<client name="" timestamp="dd-mm-yyyy hh:mm:ss">
 		
