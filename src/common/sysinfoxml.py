@@ -19,7 +19,7 @@ attr_names = {
 				'name' : 'name', 'timestamp' : 'timestamp'
 				}
 
-timestamp_format = "%d/%m/%Y %H:%M:%S"
+timestamp_format = "%d/%m/%Y %H:%M:%S %Z"
 
 #
 #
@@ -108,17 +108,17 @@ class SysInfoXMLBuilder():
 
 		for p in dao.getRunningProcesses():
 			rp = etree.SubElement( processes, tag_names['running'] )
-			rp.set('name', p[1])
+			rp.set(attr_names['name'], p[1])
 			rp.text = str(p[0])
 
 		for p in dao.getStartedProcesses():
 			sp = etree.SubElement( processes, tag_names['started'] )
-			sp.set('name', p[1])
+			sp.set(attr_names['name'], p[1])
 			sp.text = str(p[0])
 
 		for p in dao.getFinishedProcesses():
 			fp = etree.SubElement( processes, tag_names['finished'] )
-			fp.set('name', p[1])
+			fp.set(attr_names['name'], p[1])
 			fp.text = str(p[0])
 
 #
@@ -217,7 +217,7 @@ class SysInfoXMLParser:
 				raise AttributeError("Missing XML tag: CPU load")
 
 			if len(used_el) > 0:
-				used = ( float(uel.text) for uel in used_el )
+				used = tuple( float(uel.text) for uel in used_el )
 				dao.setUsedCPUPercentage( used )
 
 			else:
@@ -279,7 +279,29 @@ class SysInfoXMLParser:
 
 	def _parseProcessesData(self, dao, root):
 		# Parses data between processes tags
-		pass
+		main_tag = tag_names['processes']
+		processes = root.find(main_tag)
+
+		if processes != None:
+			self._parseProcessesDataSubElements(processes, tag_names['running'],
+													dao.setRunningProcesses )
+			self._parseProcessesDataSubElements(processes, tag_names['started'],
+													dao.setStartedProcesses )
+			self._parseProcessesDataSubElements(processes, tag_names['finished'],
+													dao.setFinishedProcesses )
+		else:
+			raise AttributeError("Missing XML tag: %s" % main_tag)
+
+	def _parseProcessesDataSubElements(self, processes, subtag, setfunc):
+		proc_el = processes.findall(subtag)
+
+		name_attr = attr_names['name']
+
+		procs = frozenset(
+				[ (int(prel.text), prel.attrib[name_attr]) for prel in proc_el])
+		setfunc(procs)
+
+
 
 #
 #
@@ -287,54 +309,28 @@ if __name__ == '__main__':
 
 	import sysinfo
 
-	# sinfo = sysinfo.SysInfo()
-	# sinfoXML = SysInfoXMLBuilder()
-
-	# sinfo.update()
-
-	# sinfoXML.setXMLData(sinfo.getSysInfoData())
-	# print sinfoXML.getAsString()
-
-	example_xml = \
-			'<client name="earth" timestamp="26/11/2013 10:54:08">' \
-				"<os>" \
-					"<name>Fedora</name>" \
-					"<version>19</version>" \
-				"</os>" \
-				"<cpu>" \
-					"<arch>64</arch>" \
-					"<model>MODELHERE</model>" \
-					"<used>0.0</used>" \
-					"<used>10.5</used>" \
-					"<loadavg1>0.18</loadavg1>" \
-					"<loadavg5>0.2</loadavg5>" \
-					"<loadavg15>0.22</loadavg15>" \
-				"</cpu>" \
-				"<memory>" \
-					"<RAM>" \
-						"<total>8363298816</total>" \
-						"<used>4118355968</used>" \
-						"<free>4244942848</free>" \
-						"<avaliable>6497857536</avaliable>" \
-					"</RAM>" \
-					"<swap>" \
-						"<total>1048571904</total>" \
-						"<used>0</used>" \
-						"<free>1048571904</free>" \
-					"</swap>" \
-				"</memory>" \
-				"<processes>" \
-					'<running name="systemd">1</running>' \
-					'<running name="migration/2">17</running>' \
-				"</processes>" \
-			"</client>"
-
+	sinfo = sysinfo.SysInfo()
+	sinfoXML = SysInfoXMLBuilder()
 	sinfoParser = SysInfoXMLParser()
-	sinfoParser.parseXML(example_xml)
 
+	sinfo.update()
+	odao = sinfo.getSysInfoData()
 
+	sinfoXML.setXMLData(odao)
+	sinfoParser.parseXML(sinfoXML.getAsString())
 
-		
+	ndao = sinfoParser.getSysInfoData()
 
+	print "Match timestamp:", odao.getTimestamp() == ndao.getTimestamp()
+	print "Match client name:", odao.getMachineName() == ndao.getMachineName()
+	print "Match os name:", odao.getOSName() == ndao.getOSName()
+	print "Match os version:", odao.getOSVersion() == ndao.getOSVersion()
+	print "Match cpu arch:", odao.getCPUArchitecture() == ndao.getCPUArchitecture()
+	print "Match cpu load avg:", odao.getCPULoadAvg() == ndao.getCPULoadAvg()
+	print "Match cpu usage %:", odao.getUsedCPUPercentage() == ndao.getUsedCPUPercentage()
+	print "Match virtual mem:", odao.getVirtualMemory() == ndao.getVirtualMemory()
+	print "Match swap mem:", odao.getSwapMemory() == ndao.getSwapMemory()
+	print "Match running procs:", odao.getRunningProcesses() == ndao.getRunningProcesses()
+	print "Match started procs:", odao.getStartedProcesses() == ndao.getStartedProcesses()
+	print "Match finished procs:", odao.getFinishedProcesses() == ndao.getFinishedProcesses()
 
-	

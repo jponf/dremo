@@ -26,7 +26,7 @@ Implementation ideas:
 
 XML Format (v0.05):
 	
-	<client name="" timestamp="dd-mm-yyyy hh:mm:ss">
+	<client name="" timestamp="dd-mm-yyyy hh:mm:ss timezone">
 		
 		<os> 									[]
 			<name> ... </name>					[]
