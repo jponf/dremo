@@ -3,6 +3,8 @@ Implementation ideas:
 
 	- Passive Server (accept connections and answer petitions)
 
+	- Timestamps in UTC format
+
 	- Clients manages their own internal timer
 		- Times:
 			- Max time between notifications: 3s (+/-)
@@ -22,7 +24,7 @@ Implementation ideas:
 
 	- Client message between: STX [ASCII 002], ETX [ASCII 003]
 
-XML Format (v0.04):
+XML Format (v0.05):
 	
 	<client name="" timestamp="dd-mm-yyyy hh:mm:ss">
 		
@@ -32,7 +34,7 @@ XML Format (v0.04):
 		</os>									[]
 
 		<cpu>									[]
-			<arch> ... </arch>					[opt]
+			<arch> ... </arch>					[]
 			<model> ... </model>				[opt]
 			<used> ... </used>					[1..n]
 			<loadavg1> ... </loadavg1>			[unix]
@@ -55,7 +57,7 @@ XML Format (v0.04):
 		</memory>								[]
 		
 		<processes>								[]
-			<running name=""> pid </running>	[name opt, 1..n]
+			<running name=""> pid </running>	[name, 1..n]
 			<started name=""> pid </started>	[name opt, 0..n]
 			<finished name=""> pid </finished>	[name opt, 0..n]
 		</processes>							[]

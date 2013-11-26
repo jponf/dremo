@@ -4,6 +4,7 @@
 import os
 import sys
 import math
+import time
 import util
 import psutil          # https://code.google.com/p/psutil/wiki/Documentation
 import platform
@@ -40,8 +41,21 @@ class SysInfo:
 	def __init__(self):
 		self._dao = SysInfoDAO()
 
-	def updateMemory(self):
-		"""updateMemory() -> void
+	def update(self):
+		"""update() -> void
+
+		Updates information of the system state at the time of the call to 
+		this function.
+
+		"""
+		self._updateCPU()
+		self._updateMemory()
+		self._updateProcesses()
+
+		self._dao.setTimestamp(time.gmtime())
+
+	def _updateMemory(self):
+		"""_updateMemory() -> void
 
 		Updates the system's memory stats.
 
@@ -59,8 +73,8 @@ class SysInfo:
 		dao.setUsedSwapMemory(swap[1])
 		dao.setFreeSwapMemory(swap[2])
 
-	def updateCPU(self, interval=0.1):
-		"""updateCPU() -> void
+	def _updateCPU(self, interval=0.1):
+		"""_updateCPU() -> void
 
 		Updates the system's cpu stats.
 
@@ -69,8 +83,8 @@ class SysInfo:
 		self._dao.setCPULoadAvg( osGetCPULoadAvg() )
 		
 
-	def updateProcesses(self):
-		"""updateProcesses() -> void
+	def _updateProcesses(self):
+		"""_updateProcesses() -> void
 
 		Updates the set of current running and tasks that have finished and have
 		started since the last call to this function.
@@ -104,6 +118,8 @@ class SysInfo:
 class SysInfoDAO:
 
 	def __init__(self):
+		self._timestamp = time.gmtime(0) # Time in UTC format
+
 		self._os_name = OS_VERSION
 		self._os_version = OS_NAME
 		self._cpu_arch = int(math.log(sys.maxsize, 2) + 1)
@@ -131,6 +147,9 @@ class SysInfoDAO:
 	#
 	# Getters
 	#
+	def getTimestamp(self):
+		return self._timestamp
+
 	def getMachineName(self):
 		return self._machine_name
 
@@ -224,6 +243,10 @@ class SysInfoDAO:
 	#
 	# Setters
 	#
+	def setTimestamp(self, tstamp):
+		util.assertType(tstamp, time.struct_time, "Expected struct_time")
+		self._timestamp = tstamp
+
 	def setMachineName(self, name):
 		util.assertType(name, str, "Expected string value")
 		self._machine_name = name
@@ -242,7 +265,7 @@ class SysInfoDAO:
 		Sets the CPU architecture. 'arch' is the number of bits of the architecture
 
 		"""
-		util.assertType(mem, (int, long), "Expected integer value")
+		util.assertType(arch, int, "Expected int value")
 		self._cpu_arch = arch
 
 	def setTotalVirtualMemory(self, mem): 
@@ -277,14 +300,13 @@ class SysInfoDAO:
 		util.assertContainsType(cpu_usage, float, \
 			"Expected floating point numbers")
 
-		for u in cpu_usage:
-			util.assertType(u, float, "Expected floating point number")
-
 		self._cpu_usage_percent = tuple( used for used in cpu_usage )
 
 	def setCPULoadAvg(self, cpu_load):
 		util.assertContainsType(cpu_load, float, \
 			"Expected floating point numbers")
+		if len(cpu_load) != 3:
+			raise Exception("Expected a tuple of 3 float values")
 
 		self._cpu_load_avg = cpu_load
 
@@ -305,7 +327,7 @@ class SysInfoDAO:
 			self._started_procs = frozenset(procs)
 
 	def setFinishedProcesses(self, procs):
-		util.assertAttribute(procs, '__iter__', "Expected procs to be iterable")
+		util.assertContainsType(procs, tuple, "Expected tuples (int, str)")
 
 		if isinstance(procs, frozenset):
 			self._finished_procs = procs
@@ -317,19 +339,16 @@ if __name__ == '__main__':
 
 	import time
 
-	def updateAllSysInfo(sinfo):
-		sinfo.updateMemory()
-		sinfo.updateCPU()
-		sinfo.updateProcesses()
-
 	sinfo = SysInfo()
-	updateAllSysInfo(sinfo)
+	sinfo.update()
 	dao = sinfo.getSysInfoData()
 
 	time.sleep(1)
 
-	updateAllSysInfo(sinfo)
+	sinfo.update()
 
+	print "Timestamp:", dao.getTimestamp()
+	print
 	print "Machine name:", dao.getMachineName()
 	print "Operating System:", dao.getOSName(), dao.getOSVersion()
 	print
