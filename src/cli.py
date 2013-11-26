@@ -3,8 +3,11 @@
 
 import sys
 import common
+import gdata
 import logging
 import argparse
+import socket
+import struct
 
 
 __program__ = "DREMO Client"
@@ -20,7 +23,99 @@ def main():
 	setUpLogger()
 	logging.info('Logging set up')
 
+	host = options.host 
+	port = options.port
+	sinfo = common.SysInfo()
+	logging.info('Host to connect to: %s ' % host)
+	logging.info('Port to connect to: %s' % port)
 
+	mcsock = beginConnection(host, port)
+	update(host, port, sinfo)
+
+#
+#
+def beginConnection(host, port):
+	hello = '%c %s' %(gdata.SOH, port)
+
+	response = communicateWithServer(host, port, hello)
+
+	if response[0] == '200 OK':
+		multicast_group, multicast_port = response[1].split()
+		multicast_port = int(multicast_port)
+		logging.debug('Received multicast group: %s' % multicast_group)
+		logging.debug('Received multicast port: %d' % multicast_port)
+
+	else:
+		logging.info('Error: %s' % response[0])
+		sys.exit(1)
+
+	return initMulticast(multicast_group, multicast_port)
+
+#
+#
+def initMulticast(group, port):
+	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # more than one sock can use this port
+	sock.bind(('', port))
+	mreq = struct.pack("4sl", socket.inet_aton(group), socket.INADDR_ANY)
+
+	sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+	return sock
+
+#
+#
+def communicateWithServer(host, port, msg):
+	sock = socket.socket()
+	sock.settimeout(3) # TODO: REMOVE MAGIC NUMBER
+	sock.connect((host, port))
+	sock.send(msg+'\n')
+
+	logging.debug('Message \'%s\' sent' % msg)
+
+	response = common.util.recvEnd(sock, '\n')
+
+	logging.debug('Response from the server (response code): %s' % response)
+
+	if response:
+		if response[0] == '200 OK':
+			resp = common.util.recvEnd(sock, '\n')
+			response.extend(resp)
+
+			if not resp: response = ['Unknown error']
+
+			logging.debug('Response from the server (response): %s' % resp)
+	else:
+		response = ['Unknown error']
+
+	logging.debug('Total response from the server: %s' % response)
+
+	return response
+
+#
+#
+def update(host, port, sinfo):
+	
+	sinfo.update()
+	sendXML(host, port, sinfo)
+
+#
+#
+def sendXML(host, port, sinfo):
+	XMLbuilder = common.sysinfoxml.SysInfoXMLBuilder()
+
+	dao = sinfo.getSysInfoData()
+	XMLbuilder.setXMLData(dao)
+	
+	msg = '%c %s %c' % (gdata.STX, XMLbuilder.getAsString(), gdata.ETX)
+
+	response = communicateWithServer(host, port, msg)
+
+	if response[0] != '200 OK':
+		logging.info('Server error %s' % response[0])
+
+#
+#
 def setUpLogger():
 	"""setUpLogger(options) -> void
 
