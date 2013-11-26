@@ -2,6 +2,61 @@
 # -*- coding: utf-8 -*-
 
 
+#
+#
+def recvAll(sock):
+	"""recvEnd(sock) -> received_data[]
+
+	Reads all the data from the socket
+
+	"""
+
+	total_data=[];data=''
+
+	while True:
+		try:
+			data=sock.recv(8192)
+			if data:
+				total_data.append( data )
+			else:
+				break
+		finally:
+			break
+
+	return total_data
+
+#
+#
+def recvEnd(sock, end):
+	"""recvEnd(sock, end) -> received_data[]
+
+	Reads data from the socket until the 'end' data is received
+
+	"""
+	total_data=[];data=''
+	while True:
+		try:
+			data=sock.recv(8192)
+			if data:	
+				if end in data:
+					total_data.append( data[:data.find(end)] )
+					break
+				total_data.append(data)
+				if len(total_data)>1:
+					# check if end of data was split
+					last_pair=total_data[-2]+total_data[-1]
+					if end in last_pair:
+						total_data[-2]=last_pair[:last_pair.find(end)]
+						total_data.pop()
+						break
+			else:
+				# No data implies disconnection
+				break;
+		finally:
+			break;
+		
+	return total_data
+
 def assertType(var, types, msg):
 	"""assertType(var, types, msg) -> void
 

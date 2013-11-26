@@ -4,6 +4,7 @@
 # Greeting messages client/server 
 SOH = 0x1
 STX = 0x2
+ETX = 0x3
 
 # Fixed ports
 SERVER_PORT = 6666
