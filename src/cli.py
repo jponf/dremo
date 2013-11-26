@@ -8,6 +8,8 @@ import logging
 import argparse
 import socket
 import struct
+import threading	
+import time
 
 
 __program__ = "DREMO Client"
@@ -25,12 +27,23 @@ def main():
 
 	host = options.host 
 	port = options.port
+	logging.debug('Host to connect to: %s ' % host)
+	logging.debug('Port to connect to: %s' % port)
+
 	sinfo = common.SysInfo()
-	logging.info('Host to connect to: %s ' % host)
-	logging.info('Port to connect to: %s' % port)
+	awakener = threading.Event()
+	auto_update = AutoUpdater(options.tbu, host, port, sinfo, awakener)
+
 
 	mcsock = beginConnection(host, port)
 	update(host, port, sinfo)
+
+	auto_update.start()
+
+	# crear socket
+	# select
+	# si socket de connexio -> tractarlo i tal
+	# si socket de multicast -> lo mismo
 
 #
 #
@@ -94,7 +107,12 @@ def communicateWithServer(host, port, msg):
 
 #
 #
-def update(host, port, sinfo):
+# use it only before starting the autoupdater. 
+# Afterwards just awaken the autoupdater thread 
+# and it will send the data. This way thread  
+# synch and concurrent ${sinfo} edit 
+# avoiding is not needed
+def update(host, port, sinfo):  
 	
 	sinfo.update()
 	sendXML(host, port, sinfo)
@@ -134,6 +152,27 @@ def setUpLogger():
 
 #
 #
+class AutoUpdater(threading.Thread):
+	def __init__(self, tbu, host, port, sinfo, awakener):
+		threading.Thread.__init__(self)
+
+		self.tbu = tbu
+		self.host = host
+		self.port = port
+		self.sinfo = sinfo
+		self.awakener = awakener
+
+	def run(self):
+		logging.debug('Updater thread started')
+
+		while True:
+			update(self.host, self.port, self.sinfo)
+
+			if self.awakener.wait(self.tbu): # sleep until tbu or someone calls awakener.set()
+				self.awakener.clear() # reset the internal flag
+
+#
+#
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(
@@ -145,6 +184,11 @@ if __name__ == '__main__':
 
 	parser.add_argument('-port', required=True, type=int, help='server port')
 
+	parser.add_argument('-timeout', required=False, type=int, help='connection timeout')
+
+	parser.add_argument('-tbu', required=False, type=float, 
+				help='time between every update sent to the server (default: 0.5)', default=0.5)
+
 	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
 				default=sys.stderr, 
 				help='logging file (default [stderr])')
@@ -155,3 +199,4 @@ if __name__ == '__main__':
 	options = parser.parse_args()
 
 	main()
+
