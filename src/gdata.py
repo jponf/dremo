@@ -81,7 +81,7 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 	parser.add_argument('-cqs', '--connection-queue-size', default=100, 
 				type=int, help="")
 
-	parser.add_argument('-mg', '--multicast-group', default='227.123.456.789',
+	parser.add_argument('-mg', '--multicast-group', default='227.123.123.123',
 				help='multicast group ip')
 
 	parser.add_argument('-mgp', '--multicast-group-port', default=7777,

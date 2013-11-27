@@ -148,10 +148,12 @@ class MonitorHandler(ThreadWithRegister):
 #
 class CommandHandler(ThreadWithRegister):
 	
-	def __init__(self, sock, m_sock, timeout):
+	def __init__(self, sock, m_sock, mg_ip, mg_port, timeout):
 		super(CommandHandler, self).__init__()
 		self.sock = sock
 		self.m_sock = m_sock
+		self.mg_ip = mg_ip
+		self.mg_port = mg_port
 		self.timeout = timeout
 		self.addr = sock.getpeername()
 
@@ -180,8 +182,11 @@ class CommandHandler(ThreadWithRegister):
 				elif helper.isCmdList(data):		# LIST
 					self._sendMonitorsList()
 
-				elif helper.isCmdGetAll(data):
+				elif helper.isCmdGetAll(data):		# GET ALL
 					self._sendGetAll()
+
+				elif helper.isCmdUpdateAll(data):	# UPDATE ALL
+					self._sendUpdateAll()
 
 				else:
 					cmd, sep, body = data.partition(' ')
@@ -228,6 +233,8 @@ class CommandHandler(ThreadWithRegister):
 					"Monitor %s is not registered" % mid)
 				)
 
+	## Checks if the given monitor id exists and then tries to send the update
+	## message to the monitor
 	def _handleUpdate(self, mid):
 		if srvdata.existsMonitorData(mid):
 			sinfodao, ip, port = srvdata.getMonitorData(mid)
@@ -278,6 +285,7 @@ class CommandHandler(ThreadWithRegister):
 
 		self.sock.sendall(msg)
 
+	## Generates and sends the response to the message get all
 	def _sendGetAll(self):
 		mlist = srvdata.getAllMonitorsData()
 		xmlbuilder = common.SysInfoXMLBuilder()
@@ -290,6 +298,12 @@ class CommandHandler(ThreadWithRegister):
 		msg = helper.getOkMessage('Here goes the data', data)
 		self.sock.sendall( msg )
 
+	## Sends the update message throug the multicast channel
+	def _sendUpdateAll(self):
+		logging.debug("Sending update to the mulsticast group")
+		self.m_sock.sendto(gdata.CMD_UPDATE, (self.mg_ip, self.mg_port) )
+
+	## Generates and sends a list with all the monitors id's
 	def _sendMonitorsList(self):
 		mlist = srvdata.getListOfMonitors()
 		strlist = '\n'.join(mlist)

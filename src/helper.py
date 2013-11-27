@@ -46,12 +46,20 @@ def isCmdGetAll(msg):
 	return msg.lower() == gdata.CMD_GET_ALL.lower()
 
 def isCmdUpdate(msg):
-	"""isCmdUpdate(msg):
+	"""isCmdUpdate(msg) -> bool
 
 	Tests if the message is the update command.
 
 	"""
-	return msg.lower().startswith(gdata.CMD_UPDATE.lower())
+	return msg.lower() == data.CMD_UPDATE.lower()
+
+def isCmdUpdateAll(msg):
+	"""isCmdUpdateAll(msg) -> bool
+
+	Tests if the message is the update all command.
+
+	"""
+	return msg.lower() == gdata.CMD_UPDATE_ALL.lower()
 
 def isBEL(msg):
 	"""isNewMonitor(msg: str) -> bool
