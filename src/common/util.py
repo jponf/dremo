@@ -33,29 +33,22 @@ def recvEnd(sock, end):
 	Reads data from the socket until the 'end' data is received
 
 	"""
-	total_data=[];data=''
+	total_data='';data=''
 	while True:
 		try:
-			data=sock.recv(8192)
+			data=sock.recv(1)
 			if data:	
-				if end in data:
-					total_data.append( data[:data.find(end)] )
+				if data == end:
 					break
-				total_data.append(data)
-				if len(total_data)>1:
-					# check if end of data was split
-					last_pair=total_data[-2]+total_data[-1]
-					if end in last_pair:
-						total_data[-2]=last_pair[:last_pair.find(end)]
-						total_data.pop()
-						break
+				else:
+					total_data += data
 			else:
 				# No data implies disconnection
 				break;
 		except Exception, e:
 			raise e
 		
-	return ''.join(total_data)
+	return total_data
 
 def assertType(var, types, msg):
 	"""assertType(var, types, msg) -> void

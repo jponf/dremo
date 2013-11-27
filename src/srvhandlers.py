@@ -22,15 +22,15 @@ class ThreadWithRegister(threading.Thread):
 
 	@staticmethod
 	def _registerThread(cls, thread):
-		cls.reg_lock.acquire()
-		cls.reg.add(thread)
-		cls.reg_lock.release()
+		cls._reg_lock.acquire()
+		cls._reg.add(thread)
+		cls._reg_lock.release()
 
 	@staticmethod
 	def _unregisterThread(cls, thread):
-		cls.reg_lock.acquire()
-		cls.reg.remove(thread)
-		cls.reg_lock.release()
+		cls._reg_lock.acquire()
+		cls._reg.remove(thread)
+		cls._reg_lock.release()
 
 	@staticmethod
 	def _waitAll(cls):
@@ -51,7 +51,7 @@ class ThreadWithRegister(threading.Thread):
 class MonitorHandler(ThreadWithRegister):
 
 	def __init__(self, sock, timeout):
-		super(self, MonitorHandler).__init__(self)
+		super(MonitorHandler, self).__init__()
 		self.sock = sock
 		self.timeout = timeout
 		self.addr = sock.getpeername()	# Save socket address
@@ -67,7 +67,8 @@ class MonitorHandler(ThreadWithRegister):
 		sock.settimeout( self.timeout )
 
 		try:
-			data = common.readEnd(sock, gdata.STX)
+			data = common.recvEnd(sock, gdata.ETX)
+			logging.debug("%s:%d Data:\n%s" % (self.addr[0], self.addr[1], data))
 			head, sep, body = data.partition(' ')
 			head = head.strip()
 			body = body.strip()
@@ -84,9 +85,9 @@ class MonitorHandler(ThreadWithRegister):
 							"Reached timeout of %.1f seconds" % self.timeout) 
 						)
 		except AttributeError, e:
-			sock.sendall( helper.getGenericerror(str(e)) )
+			sock.sendall( helper.getGenericError(str(e)) )
 		except ValueError, e:
-			sock.sendall( helper.getGenericerror(str(e)) )
+			sock.sendall( helper.getGenericError(str(e)) )
 
 		finally:
 			sock.close()
@@ -103,12 +104,12 @@ class MonitorHandler(ThreadWithRegister):
 		mid = srvdata.initializeNewMonitorData(self.addr[0], port)
 
 		opt = gdata.getCommandLineOptions()
-		msg = helpers.getOkMessage(
+		msg = helper.getOkMessage(
 				"%s %s %d" 
 				% (mid, opt.multicast_group, opt.multicast_group_port)
 			)
 
-		sock.sendall(msg)
+		self.sock.sendall(msg)
 
 		self._updateMonitor(mid)
 
@@ -117,12 +118,14 @@ class MonitorHandler(ThreadWithRegister):
 		if srvdata.existsMonitorData(mid):
 			srvdata.keepAliveMonitor(mid)
 
-			data = common.readEnd(self.sock, gdata.ETX).strip()
+			data = common.recvEnd(self.sock, gdata.ETX).strip()
+			logging.debug("%s:%d Data:\n%s" % (self.addr[0], self.addr[1], data))
+
 			infoparser = common.SysInfoXMLParser()
 			infoparser.parseXML(data)
 			infodao = infoparser.getSysInfoData()
 			srvdata.updateMonitorData(mid, infodao)
-			self.sock.sendall( helpers.getOkMessage("Update successful") )
+			self.sock.sendall( helper.getOkMessage("Update successful") )
 		
 		else:
 			self.sock.sendall( 
@@ -138,6 +141,9 @@ class MonitorHandler(ThreadWithRegister):
 #
 class CommandHandler(ThreadWithRegister):
 	
+	def __init__(self, sock):
+		super(self, CommandHandler).__init__(self)
+
 	@staticmethod
 	def waitAll():
 		MonitorHandler._waitAll(MonitorHandler)

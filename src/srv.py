@@ -15,7 +15,7 @@ import srvmainloop
 # Program Data
 # ------------
 __program__ = "DREMO Server"
-__version__ = '0.1a'
+__version__ = '0.3a'
 __author__ = "Josep Pon Farreny, Marc Piñol Pueyo"
 __license__ = "MIT"
 __status__ = "Development"
@@ -28,13 +28,13 @@ def main():
 	# Set logging and print command line options
 	setUpLogging()
 	printCommandLineOptions()
-	try:
-		# Set up sockets
-		mon_sock, cli_sock, m_sock = setUpSockets()
 
+	# Set up sockets
+	mon_sock, cli_sock, m_sock = setUpSockets()
+
+	try:
 		# Starts runs the main loop, close all the sockets at exit
 		srvmainloop.mainLoop(mon_sock, cli_sock, m_sock)
-
 	finally:
 		mon_sock.close()
 		cli_sock.close()
@@ -60,7 +60,7 @@ def setUpSockets():
 
 		cli_sock.bind((opt.ip, opt.cli_port))
 		cli_sock.listen(opt.connection_queue_size)
-		logging.info('Cleint socket bound to %s:%d' % (opt.ip, opt.cli_port))
+		logging.info('Client socket bound to %s:%d' % (opt.ip, opt.cli_port))
 
 	except socket.error, e:
 		logging.critical("%s [%s]" % (str(e), opt.ip))
@@ -101,12 +101,13 @@ def printCommandLineOptions():
 
 	logging.debug("IP: " + o.ip)
 	logging.debug("Monitors Port: " + str(o.mon_port) )
-	logging.debug("Clients Port" + str(o.cli_port))
+	logging.debug("Clients Port: " + str(o.cli_port))
 	logging.debug("Connection timeout: " + str(o.connection_timeout) )
 	logging.debug("Connection queue size: " + str(o.connection_queue_size))
 	logging.debug("Multicast Group: " + o.multicast_group)
 	logging.debug("Multicast Port: " + str(o.multicast_group_port))
 	logging.debug("Multicast TTL: " + str(o.multicast_group_ttl))
+	logging.debug("Data life time: " + str(o.data_life_time))
 	logging.debug("Logfile: " + o.logfile.name)
 
 #

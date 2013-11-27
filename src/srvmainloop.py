@@ -26,7 +26,11 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 			for s in i:
 				t = None
 				if s is mon_sock:
-					t = srvhandlers.MonitorHandler(sock, opt.timeout)
+					ns, addr = s.accept()
+					logging.debug("New monitor connexion from %s:%d" % addr)
+
+					t = srvhandlers.MonitorHandler(ns, opt.connection_timeout)
+					t.start()					
 				else:
 					pass # Same as above with ClientHandler
 
@@ -36,9 +40,6 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 		logging.info("Waiting threads termination")
 		waitThreads()
 		logging.info("All threads terminated")
-
-
-
 
 def waitThreads():
 	srvhandlers.MonitorHandler.waitAll()
