@@ -11,6 +11,7 @@ STX = '%c' % 0x2
 ETX = '%c' % 0x3
 BEL = '%c' % 0x7
 
+
 # Fixed ports
 SERVER_PORT = 6666
 
@@ -39,8 +40,7 @@ K_ERR_MONITOR_NOT_FOUND = '501'
 K_ERR_MONITOR_UNREACHABLE = '502'
 K_ERR_BAD_MESSAGE = '503'
 K_ERR_TIMEOUT = '504'
-
-
+K_ERR_UNKNOWN_CMD = '505'
 
 # Command line options
 # --------------------

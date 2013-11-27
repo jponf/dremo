@@ -68,10 +68,12 @@ def updateMonitorData(mid, sinfodao):
 	mdata[K_RWLOCK].release()
 
 def getMonitorData(mid):
-	"""getMonitorData(mid: str) -> SysInfoDAO
+	"""getMonitorData(mid: str) -> SysInfoDAO, str, str
 
 	Returns the stored data of a monitor or raises a KeyError exception if the
 	monitor does not exist.
+
+	Returns the tuple (SysInfoDAO, ip, port)
 
 	"""
 	common.assertType(mid, str, "Expected monitor id to be a string value")
@@ -80,9 +82,26 @@ def getMonitorData(mid):
 
 	mdata[K_RWLOCK].acquireRead()
 	sinfodao = mdata[K_SYSINFO]
+	port = mdata[K_PORT]
+	ip = mdata[K_IP]
 	mdata[K_RWLOCK].release()
 
-	return sinfodao
+	return sinfodao, ip, port
+
+def getAllMonitorsData():
+	"""getAllMonitorsData() -> [ (SysInfoDAO, str, str) ]
+
+	Returns a list with all the SysInfoDAO on the DB.
+
+	Returns a list of tuples with (SysInfoDAO, ip, port)
+
+	"""
+	monitor_db_lock.acquireRead()
+	mdatal = [ (v[K_SYSINFO], v[K_IP], v[K_PORT])
+					for k, v in monitor_db.iteritems() ]
+	monitor_db_lock.release()
+
+	return mdatal
 
 def getListOfMonitors():
 	"""getListOfMonitors() -> [str]
