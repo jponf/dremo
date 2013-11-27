@@ -217,7 +217,7 @@ class CommandHandler(ThreadWithRegister):
 			xmlbuilder = common.SysInfoXMLBuilder()
 			xmlbuilder.setXMLData(sinfodao)
 
-			data = "%s\n%s\n%s" % (ip, port, xmlbuilder.getAsString())
+			data = "IP: %s\nPORT: %s\n%s" % (ip, port, xmlbuilder.getAsString())
 
 			msg = helper.getOkMessage('Data of %s' % mid, 
 										xmlbuilder.getAsString())
@@ -228,6 +228,56 @@ class CommandHandler(ThreadWithRegister):
 					"Monitor %s is not registered" % mid)
 				)
 
+	def _handleUpdate(self, mid):
+		if srvdata.existsMonitorData(mid):
+			sinfodao, ip, port = srvdata.getMonitorData(mid)
+			srvdata.keepAliveMonitor(mid)
+
+			s = None
+			try:
+				self._sendUpdateToMonitor(ip, port)
+
+			except socket.error:
+				logging.debug("Error updating %s:%s" % (ip, port))
+				self.sock.sendall(
+						helper.getMonitorUnreachableError(
+							"Error connecting to %s:%s" % (ip, port)
+						)
+					)
+			except socket.timeout:
+				logging.debug("Timeout updating %s:%s" % (ip, port))
+				self.sock.sendall(
+						helper.getMonitorUnreachableError(
+							"Error connecting to %s:%s [Timeout]" % (ip, port)
+						)
+					)
+			finally:
+				if s: s.close()
+		else:
+			self.sock.sendall(
+						helper.getMonitorNotFoundError(
+							"Monitor %s does not exists" % mid)
+					)
+
+	## Sends the update message to the specified ip and port, waits for the
+	## response and propagate the response to the applicant
+	def _sendUpdateToMonitor(self, ip, port):
+		# Send Update to monitor and get response
+		s = socket.create_connection( (ip, port), self.timeout )
+		s.sendall("%s\n" % gdata.CMD_UPDATE)
+
+		ret = common.recvEnd(s, '\n').strip()
+		code, sep, desc = ret.partition(' ')
+
+		# Send result to client
+		msg = None
+		if code == gdata.K_OK:
+			msg = helper.getOkMessage(desc)
+		else:
+			msg = helper.getGenericError("Received an error from the monitor")
+
+		self.sock.sendall(msg)
+
 	def _sendGetAll(self):
 		mlist = srvdata.getAllMonitorsData()
 		xmlbuilder = common.SysInfoXMLBuilder()
@@ -235,11 +285,10 @@ class CommandHandler(ThreadWithRegister):
 		data = ''
 		for sinfodao, ip, port in mlist:
 			xmlbuilder.setXMLData(sinfodao)
-			data += "%s\n%s\n%s" % (ip, port, xmlbuilder.getAsString())
-			
+			data += "IP: %s\nPORT: %s\n%s" % (ip, port, xmlbuilder.getAsString())
+
 		msg = helper.getOkMessage('Here goes the data', data)
 		self.sock.sendall( msg )
-
 
 	def _sendMonitorsList(self):
 		mlist = srvdata.getListOfMonitors()
