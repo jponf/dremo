@@ -52,8 +52,8 @@ def recvEnd(sock, end):
 			else:
 				# No data implies disconnection
 				break;
-		finally:
-			break;
+		except Exception, e:
+			raise e
 		
 	return ''.join(total_data)
 

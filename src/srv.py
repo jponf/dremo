@@ -28,12 +28,17 @@ def main():
 	# Set logging and print command line options
 	setUpLogging()
 	printCommandLineOptions()
-	
-	# Set up sockets
-	listen_sock, mgroup_socket = setUpSockets()
+	try:
+		# Set up sockets
+		mon_sock, cli_sock, m_sock = setUpSockets()
 
-	# Starts runs the main loop, close all the sockets at exit
-	srvmainloop.mainLoop(listen_sock, mgroup_socket)
+		# Starts runs the main loop, close all the sockets at exit
+		srvmainloop.mainLoop(mon_sock, cli_sock, m_sock)
+
+	finally:
+		mon_sock.close()
+		cli_sock.close()
+		m_sock.close()
 	
 
 def setUpSockets():
@@ -42,27 +47,33 @@ def setUpSockets():
 	Sets up the clients connection socket and the multicast socket.
 
 	"""
-	options = gdata.getCommandLineOptions()
+	opt = gdata.getCommandLineOptions()
 
-	conn_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	mon_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 	# Bind conn_sock
 	try:
-		conn_sock.bind((options.ip, options.port))
-		conn_sock.listen(options.connection_queue_size)
-		logging.debug('Socket bound to %s:%d' % (options.ip, options.port))
+		mon_sock.bind((opt.ip, opt.mon_port))
+		mon_sock.listen(opt.connection_queue_size)
+		logging.info('Monitor socket bound to %s:%d' % (opt.ip, opt.mon_port))
+
+		cli_sock.bind((opt.ip, opt.cli_port))
+		cli_sock.listen(opt.connection_queue_size)
+		logging.info('Cleint socket bound to %s:%d' % (opt.ip, opt.cli_port))
+
 	except socket.error, e:
-		logging.critical("%s [%s]" % (str(e), options.ip))
+		logging.critical("%s [%s]" % (str(e), opt.ip))
 		sys.exit(-1)
 
 	# Set multicast socket options (only send)
 	mgroup_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	mgroup_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 
-		options.multicast_group_ttl)
+		opt.multicast_group_ttl)
 	# Avoid receiving own messages
 	# mgroup_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
 
-	return conn_sock, mgroup_sock
+	return mon_sock, cli_sock, mgroup_sock
 
 def setUpLogging():
 	"""setUpLogging() -> void
@@ -89,7 +100,8 @@ def printCommandLineOptions():
 	o = gdata.getCommandLineOptions()
 
 	logging.debug("IP: " + o.ip)
-	logging.debug("Port: " + str(o.port) )
+	logging.debug("Monitors Port: " + str(o.mon_port) )
+	logging.debug("Clients Port" + str(o.cli_port))
 	logging.debug("Connection timeout: " + str(o.connection_timeout) )
 	logging.debug("Connection queue size: " + str(o.connection_queue_size))
 	logging.debug("Multicast Group: " + o.multicast_group)
@@ -100,7 +112,7 @@ def printCommandLineOptions():
 #
 #
 if __name__ == '__main__':
-
+	# Initialize command line options
 	gdata.initSrvCommandLineOptions(sys.argv[1:], __version__)
 
 	main()

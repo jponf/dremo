@@ -1,12 +1,15 @@
 #
 # -*- coding: utf-8 -*-
 
+# 
+SOCK_MIN_PORT = 512
+SOCK_MAX_PORT = 49152
+
 # Greeting messages client/server 
 SOH = '%c' % 0x1
 STX = '%c' % 0x2
 ETX = '%c' % 0x3
 BEL = '%c' % 0x7
-EOD = '\n'
 
 # Fixed ports
 SERVER_PORT = 6666
@@ -42,6 +45,7 @@ K_ERR_TIMEOUT = '504'
 # Command line options
 # --------------------
 import argparse
+import logging
 import sys
 
 options = None
@@ -49,9 +53,13 @@ options = None
 #
 #
 def initSrvCommandLineOptions(cmd_line_options, version):
-	global options
+	"""initSrvCommandLineOptions(cmd_line_options: [str], version: int) -> void
 
-	
+	Initializes the server options using the given cmd_line_options and makes 
+	them accessible throug getCommandLineOptions()
+
+	"""
+	global options
 
 	parser = argparse.ArgumentParser(
 				usage=globals()['__doc__'],
@@ -61,8 +69,11 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 	parser.add_argument('-ip', default='0.0.0.0', 
 				help='server listen interface ip')
 
-	parser.add_argument('-port', default=6666, type=int,
-				help='server listen port')
+	parser.add_argument('-mon_port', default=6666, type=int,
+				help='monitors listen port')
+
+	parser.add_argument('-cli_port', default=6665, type=int,
+				help='clients listen port')
 
 	parser.add_argument('-cto', '--connection-timeout', default=3, type=float,
 				help='client connection timeout')
@@ -90,6 +101,11 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 				help='sets the loggin leve to DEBUG')
 
 	options = parser.parse_args(cmd_line_options)
+
+	if options.data_life_time < options.connection_timeout * 2:
+		logging.critical(
+			"Data life time must be at least twice the connection life time")
+		sys.exit(-1)
 
 #
 #

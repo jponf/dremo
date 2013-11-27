@@ -5,9 +5,9 @@
 
 import gdata
 import common
+import helper
 import socket
 import srvdata
-import helpers
 import logging
 import threading
 
@@ -15,122 +15,129 @@ import threading
 # Classes
 # -------
 
+class ThreadWithRegister(threading.Thread):
+
+	_reg_lock = threading.RLock()
+	_reg = set()
+
+	@staticmethod
+	def _registerThread(cls, thread):
+		cls.reg_lock.acquire()
+		cls.reg.add(thread)
+		cls.reg_lock.release()
+
+	@staticmethod
+	def _unregisterThread(cls, thread):
+		cls.reg_lock.acquire()
+		cls.reg.remove(thread)
+		cls.reg_lock.release()
+
+	@staticmethod
+	def _waitAll(cls):
+		cls._reg_lock.acquire()
+
+		while len(cls._reg) > 0:
+			rt = cls._reg.pop()
+			cls._reg.add(rt)
+			cls._reg_lock.release()
+			rt.join()
+
+			cls._reg_lock.acquire()
+			if len(cls._reg) == 0:
+				cls._reg_lock.release()
+				break
 #
 #
-class MonitorHandler(threading.Thread):
+class MonitorHandler(ThreadWithRegister):
 
-	running_threads = set()
-	running_threads_lock = threading.RLock()
-
-	def __init__(self, sock, mid, init_msg, timeout):
-		super(MonitorHandler, self).__init__()
+	def __init__(self, sock, timeout):
+		super(self, MonitorHandler).__init__(self)
 		self.sock = sock
-		self.mid = mid
-		self.init_msg = init_msg
 		self.timeout = timeout
+		self.addr = sock.getpeername()	# Save socket address
 
-		
 	def run(self):
-		self._registerRunningThread()
+		"""run() -> void
+
+		Handles the communication events and errors with a resource monitor.
+
+		"""
+		MonitorHandler._registerThread(MonitorHandler, self)
 		sock = self.sock
 		sock.settimeout( self.timeout )
 
-		# Send initial message (Notify the handler is now managing the socket)
-		sock.sendall(self.init_msg)
-
 		try:
-			data = common.recvEnd( sock, gdata.EOD )
-			stx, sep, xml = data.partition(' ')
+			data = common.readEnd(sock, gdata.STX)
+			head, sep, body = data.partition(' ')
+			head = head.strip()
+			body = body.strip()
 
-			if stx != gdata.STX:
-				sock.sendall(helpers.getBadMessageError(
-					'Incorrect start of update message %s' % stx) )
+			if helper.isBEL(head):		# New monitor
+				self._newMonitor(body)
+			elif helper.isSOH(head):	# Monitor data update
+				self._updateMonitor(body)
 			else:
-				infoparser = common.SysInfoXMLParser()
-				infoparser.parseXML(xml)
-				infodao = infoparser.getSysInfoData()
-				srvdata.updateMonitorData(self.mid, infodao)
-				sock.sendall( helpers.getOkMessage() )
-				logging.debug("Updated client [%s] sysinfo" % self.mid)
+				sock.sendall( helper.getBadMessageError("Unknown message") )
 
 		except socket.timeout:
-			sock.sendall(helpers.getTimeoutError('Reached timeout of %f' 
-												% options.connection_timeout) )
+			sock.sendall( helper.getTimeoutError(
+							"Reached timeout of %.1f seconds" % self.timeout) 
+						)
 		except AttributeError, e:
-			sock.sendall( helpers.getGeneralError(str(e)) )
+			sock.sendall( helper.getGenericerror(str(e)) )
 		except ValueError, e:
-			sock.sendall( helpers.getGeneralError(str(e)) )
+			sock.sendall( helper.getGenericerror(str(e)) )
 
 		finally:
-			self._unregisterRunningThread()
-			addr = sock.getpeername()
 			sock.close()
-			logging.debug("MonitorHandler closed %s:%d" % addr)
+			logging.debug("Monitor handler closed socket to %s:%s" % self.addr)
+			MonitorHandler._unregisterThread(MonitorHandler, self)
 
-	def _registerRunningThread(self):
-		MonitorHandler.running_threads_lock.acquire()
-		MonitorHandler.running_threads.add(self)
-		MonitorHandler.running_threads_lock.release()
+	def _newMonitor(self, port):
+		
+		iport = int(port)
+		if iport < gdata.SOCK_MIN_PORT or iport > gdata.SOCK_MAX_PORT:
+			raise ValueError("Port value (%d) out of range [%d-%d]" 
+				% (iport, gdata.SOCK_MIN_PORT, gdata.SOCK_MAX_PORT))
 
-	def _unregisterRunningThread(self):
-		MonitorHandler.running_threads_lock.acquire()
-		MonitorHandler.running_threads.remove(self)
-		MonitorHandler.running_threads_lock.release()
+		mid = srvdata.initializeNewMonitorData(self.addr[0], port)
+
+		opt = gdata.getCommandLineOptions()
+		msg = helpers.getOkMessage(
+				"%s %s %d" 
+				% (mid, opt.multicast_group, opt.multicast_group_port)
+			)
+
+		sock.sendall(msg)
+
+		self._updateMonitor(mid)
+
+	def _updateMonitor(self, mid):
+		
+		if srvdata.existsMonitorData(mid):
+			srvdata.keepAliveMonitor(mid)
+
+			data = common.readEnd(self.sock, gdata.ETX).strip()
+			infoparser = common.SysInfoXMLParser()
+			infoparser.parseXML(data)
+			infodao = infoparser.getSysInfoData()
+			srvdata.updateMonitorData(mid, infodao)
+			self.sock.sendall( helpers.getOkMessage("Update successful") )
+		
+		else:
+			self.sock.sendall( 
+				helper.getMonitorNotFoundError(
+					"There isn't any monitor with id: %s" % mid)
+				)
 
 	@staticmethod
 	def waitAll():
-		MonitorHandler.running_threads_lock.acquire()
-
-		while len(MonitorHandler.running_threads) > 0:
-			rt = MonitorHandler.running_threads.pop()
-			MonitorHandler.running_threads.add(rt)
-			MonitorHandler.running_threads_lock.release()
-			rt.join()
-
-			MonitorHandler.running_threads_lock.acquire()
-			if len(MonitorHandler.running_threads) == 0:
-				MonitorHandler.running_threads_lock.release()
+		MonitorHandler._waitAll(MonitorHandler)
 
 #
 #
-class CommandHandler(threading.Thread):
+class CommandHandler(ThreadWithRegister):
 	
-	running_threads = set()
-	running_threads_lock = threading.RLock()
-
-	def __init__(self, sock, m_id):
-		super(self, CommandHandler).__init__()
-
-		self.listen_sock = listen_sock
-		in_socks = set([listen_sock])
-		out_socks = set()
-
-	def run():
-		self._registerRunningThread()
-
-
-		self._unregisterRunningThread()
-
-	def _registerRunningThread(self):
-		CommandHandler.running_threads_lock.acquire()
-		CommandHandler.running_threads.add(self)
-		CommandHandler.running_threads_lock.release()
-
-	def _unregisterRunningThread(self):
-		CommandHandler.running_threads_lock.acquire()
-		CommandHandler.running_threads.remove(self)
-		CommandHandler.running_threads_lock.release()
-
 	@staticmethod
 	def waitAll():
-		CommandHandler.running_threads_lock.acquire()
-
-		while len(CommandHandler.running_threads) > 0:
-			rt = CommandHandler.running_threads.pop()
-			CommandHandler.running_threads.add(rt)
-			CommandHandler.running_threads_lock.release()
-			rt.join()
-
-			CommandHandler.running_threads_lock.acquire()
-			if len(CommandHandler.running_threads) == 0:
-				CommandHandler.running_threads_lock.release()
+		MonitorHandler._waitAll(MonitorHandler)
