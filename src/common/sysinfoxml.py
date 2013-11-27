@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import xml.etree.cElementTree as etree
 import time
+import sysinfo
+
+import xml.etree.cElementTree as etree
+from xml.etree.cElementTree import ParseError
 
 tag_names = {
 			'root' : 'client', 'ip' : 'ip', 'os' : 'os', 'cpu' : 'cpu',
@@ -138,16 +141,19 @@ class SysInfoXMLParser:
 		Warning: Does not detect extra data mixed with the xml.
 
 		"""
-		root = etree.fromstring(xml_string)
-		dao = sysinfo.SysInfoDAO()			# Work over isolated DAO
+		try:
+			root = etree.fromstring(xml_string)
+			dao = sysinfo.SysInfoDAO()			# Work over isolated DAO
 
-		self._parseDescriptiveData(dao, root)
-		self._parseOSData(dao, root)
-		self._parseCPUData(dao, root)
-		self._parseMemoryData(dao, root)
-		self._parseProcessesData(dao, root)
+			self._parseDescriptiveData(dao, root)
+			self._parseOSData(dao, root)
+			self._parseCPUData(dao, root)
+			self._parseMemoryData(dao, root)
+			self._parseProcessesData(dao, root)
 
-		self._dao = dao # Once the data is consistend store the new DAO
+			self._dao = dao # Once the data is consistend store the new DAO
+		except ParseError, e:
+			raise AttributeError(str(e))
 
 
 	def getSysInfoData(self):
@@ -306,8 +312,6 @@ class SysInfoXMLParser:
 #
 #
 if __name__ == '__main__':
-
-	import sysinfo
 
 	sinfo = sysinfo.SysInfo()
 	sinfoXML = SysInfoXMLBuilder()

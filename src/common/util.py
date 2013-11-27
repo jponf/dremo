@@ -23,7 +23,7 @@ def recvAll(sock):
 		finally:
 			break
 
-	return total_data
+	return ''.join(total_data)
 
 #
 #
@@ -55,7 +55,7 @@ def recvEnd(sock, end):
 		finally:
 			break;
 		
-	return total_data
+	return ''.join(total_data)
 
 def assertType(var, types, msg):
 	"""assertType(var, types, msg) -> void
