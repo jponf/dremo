@@ -81,6 +81,7 @@ class MonitorHandler(ThreadWithRegister):
 				sock.sendall( helper.getBadMessageError("Unknown message") )
 
 		except socket.timeout:
+			logging.debug("Socket TIMEOUT %s:%d" % self.addr)
 			sock.sendall( helper.getTimeoutError(
 							"Reached timeout of %.1f seconds" % self.timeout) 
 						)
