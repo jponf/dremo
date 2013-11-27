@@ -37,15 +37,22 @@ def main():
 		mainLoop(mon_sock, cli_sock, m_sock)
 	finally:
 		mon_sock.close()
+		logging.info("Monitors socket closed")
 		cli_sock.close()
+		logging.info("Commands socket closed")
 		m_sock.close()
 
 def mainLoop(mon_sock, cli_sock, m_sock):
-	
+	"""mainLoop(mon_sock: socket, cli_sock: socket, m_sock: socket) -> void
+
+	Main logic of the applications, listens to mon_sock and cli_sock and 
+	starts threads to handle the petitions.
+
+	"""
 	opt = gdata.getCommandLineOptions()
+	timeout = opt.connection_timeout
 
 	insocks = set([mon_sock, cli_sock])
-
 	logging.info("Server running press Ctrl+C to Quit!")
 
 	try:
@@ -58,10 +65,16 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 					ns, addr = s.accept()
 					logging.debug("New monitor connexion from %s:%d" % addr)
 
-					t = srvhandlers.MonitorHandler(ns, opt.connection_timeout)
-					t.start()					
+					t = srvhandlers.MonitorHandler(ns, timeout)
+					t.start()
+
 				else:
-					pass # Same as above with ClientHandler
+					# If is not mon_sock then it is conn_sock
+					ns, addr = s.accept()
+					logging.debug("New command connexion from %s:%d" % addr)
+
+					t = srvhandlers.CommandHandler(ns, m_sock, timeout)
+					t.start()
 
 	except KeyboardInterrupt:
 		logging.info("Finishing due to KeyboardInterrupt")
@@ -112,7 +125,7 @@ def setUpSockets():
 def setUpLogging():
 	"""setUpLogging() -> void
 
-	Sets up the loggin module.
+	Sets up the logging module.
 
 	"""
 	options = gdata.getCommandLineOptions()
