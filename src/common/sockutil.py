@@ -4,6 +4,8 @@
 # -------
 
 import socket
+import struct
+import logging
 
 # Functions
 # ---------
@@ -41,10 +43,10 @@ def recvEnd(sock, end):
 		try:
 			data=sock.recv(1)
 			if data:	
-				if data == end:
+				total_data += data
+				if total_data.endswith(end):
+					total_data = total_data[:-len(end)]
 					break
-				else:
-					total_data += data
 			else:
 				# No data implies disconnection
 				break;
