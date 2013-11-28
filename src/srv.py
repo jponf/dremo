@@ -10,6 +10,7 @@ import common
 import select
 import socket
 import logging
+import srvdata
 import srvhandlers
 
 # Program Data
@@ -29,12 +30,26 @@ def main():
 	setUpLogging()
 	printCommandLineOptions()
 
+	# Get command line options
+	opt = gdata.getCommandLineOptions()
+
 	# Set up sockets
 	mon_sock, cli_sock, m_sock = setUpSockets()
 
 	try:
+		# Starts the data base garbage collector
+		db_gc = srvdata.DBGarbageCollector(opt.data_life_time / 2 ,
+											opt.data_life_time)
+		db_gc.start()
+		logging.info("DB Garbage collector started")
+
 		# Starts runs the main loop, close all the sockets at exit
 		mainLoop(mon_sock, cli_sock, m_sock)
+
+		# Stop the garbage collector
+		srvdata.DBGarbageCollector.stop(db_gc)
+		logging.info("DB Garbage collector stoped")
+
 	finally:
 		mon_sock.close()
 		logging.info("Monitors socket closed")

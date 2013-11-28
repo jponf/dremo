@@ -155,7 +155,7 @@ def _getMonitor(mid):
 def removeOldMonitorData(max_time):
 	"""removeOldMonitorData(max_time: float) -> void
 
-	Remove the data in the monitor's DB older than max_time seconds.
+	Remove data in the monitor's DB older than max_time seconds.
 
 	"""
 	monitor_db_lock.acquireWrite()
@@ -164,4 +164,60 @@ def removeOldMonitorData(max_time):
 	for mid in monitor_db.keys():
 		if cur_time - monitor_db[mid][K_TIMESTAMP] > max_time:
 			del monitor_db[mid]
+			logging.debug("Droped data of: %s" % mid)
 	monitor_db_lock.release()
+
+#
+## Cleans the database every data life time
+class DBGarbageCollector(threading.Thread):
+
+	def __init__(self, gc_time, data_life_time):
+		super(DBGarbageCollector, self).__init__()
+
+		self._gc_time = gc_time
+		self._data_time = data_life_time
+		self._awakener = threading.Event()
+		self._mutex = threading.RLock()
+		self._active = True
+
+	## Override
+	def run(self):
+
+		self._setRunState()
+
+		self._mutex.acquire() # lock and check active state
+		while self._active:
+			self._mutex.release() # unlock and wait
+
+			if self._awakener.wait(self._gc_time):
+				self._awakener.clear()	# Resets the internal flag
+
+			removeOldMonitorData(self._data_time)
+
+			self._mutex.acquire() # lock to check the active state
+
+		self._mutex.release() # comes out with the mutex acquired
+
+
+	## Sets internal data to a consistent state before starting the run loop
+	def _setRunState(self):
+		self._awakener.clear()	# Clears internal flag before first wait
+		
+		self._mutex.acquire()
+		self._active = True
+		self._mutex.release()
+
+	@staticmethod
+	def stop(db_gc):
+		"""stop() -> void
+
+		Given a DBGarbageCollector instance set the stop flag and waits
+		until the collector thread termination.
+
+		"""
+		db_gc._mutex.acquire()
+		db_gc._active = False
+		db_gc._awakener.set()
+		db_gc._mutex.release()
+		db_gc.join()
+
