@@ -22,23 +22,23 @@ __status__ = "Development"
 
 
 def main():
-	global options
+	options = gdata.getCommandLineOptions()
 
 	setUpLogger()
 	logging.info('Logging set up')
-	logging.debug('Host to connect to: %s ' % options.host)
-	logging.debug('Port to connect to: %s' % options.port)
+	logging.debug('Host to connect to: %s ' % options.broker_host)
+	logging.debug('Port to connect to: %s' % options.broker_port)
 
 	sinfo = common.SysInfo()
 	sinfo.update()
 	awakener = threading.Event()
 
-	mcsock, client_id = beginConnection(options.host, options.port, sinfo)
+	mcsock, client_id = beginConnection(options.broker_host, options.broker_port, sinfo)
 
-	auto_update = AutoUpdater(options.tbu, options.host, options.port, client_id, sinfo, awakener)
+	auto_update = AutoUpdater(options.time_between_updates, options.broker_host, options.broker_port, client_id, sinfo, awakener)
 	auto_update.start()
 
-	sock = createTCPSocket('0.0.0.0', options.listenport, False)
+	sock = common.createServerTCPSocket('0.0.0.0', options.listen_port, options.connection_queue_size)
 	in_socks = set([mcsock, sock])
 
 	_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id)
@@ -56,6 +56,7 @@ def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id):
 				_processInstruction(ns, 'tcp', awakener, sinfo, client_id)
 				
 			elif s is mcsock:
+				ns, addr = s.accept()
 				logging.info('New multicast request')
 				_processInstruction(ns, 'mc', awakener, sinfo, client_id)
 
@@ -79,12 +80,12 @@ def _processInstruction(sock, connection_type, awakener, sinfo, client_id):
 #
 def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_type=''):
 	if helper.isCmdUpdate(instruction):
-			sock.send(helper.getOkMessage())
+			sock.sendall(helper.getOkMessage())
 			awakener.set()
 			logging.debug('Requested update sent')
 
 	elif not connection_type and helper.isCmdGet(instruction):
-		sock.send(helper.getOkMessage())
+		sock.sendall(helper.getOkMessage())
 		sendXML(sock, sinfo, client_id, False)
 		logging.debug('Requested get sent')
 		
@@ -95,47 +96,38 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
 #
 #
 def _updateFromOther(sock, instruction, params):
-	ip, port = params.split(':')
+	ip, port = params.strip().split(':')
 	port = int(port)
 	response = ''
 
 	try:
-		sock_to_other = createTCPSocket(ip, port)
-		response_head,m,n = sendThroughSocket(sock_to_other, instruction + '\n')
+		sock_to_other = socket.create_connection((ip, port))
+		sock_to_other.sendall(instruction + '\n')
+
+		msg = common.recvEnd(sock_to_other, '\n\n')	
+		response_head, sep, rest = msg.partition(' ')
 
 		if response_head == '200':
-			response = common.recvEnd(sock_to_other, dgata.ETX)
-			response.join(common.recvEnd(sock_to_other, dgata.ETX))
+			msg = common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
+			msg += common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
+
 	except:
 		response = helper.getMonitorUnreachableError('Connection failed')
 
-	sendThroughSocket(sock, response, wait_for_response = False)
-
-#
-#
-def createTCPSocket(host, port, connect=True):
-	sock = socket.socket()
-	sock.settimeout(3) # TODO: REMOVE MAGIC NUMBER
-	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-	if connect:
-		sock.connect((host, port))
-	else:
+	finally:
 		try:
-			sock.bind((host, port))
-			sock.listen(5)
+			sock_to_other.close()
+			sendThroughSocket(sock, msg, wait_for_response=False)
+			#sock.sendall(msg)
 		except:
-			logging.info('Error binding socket')
-			sys.exit(1)
-
-	return sock
+			logging.debug('Error sending other client\'s data')
 
 #
 #
 def beginConnection(host, port, sinfo):
 	hello = '%c %s %c %s %c' %(gdata.BEL, port, gdata.ETX, buildXML(sinfo), gdata.ETX)
 
-	ret_code, detail, response = sendThroughSocket(createTCPSocket(host, port), hello)
+	ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port)), hello)
 	
 	if ret_code == '200':
 		ret_id, multicast_group, multicast_port  = response.split()
@@ -152,7 +144,9 @@ def beginConnection(host, port, sinfo):
 			logging.info('Unknown error')
 		sys.exit(1)
 
-	return _initMulticast(multicast_group, multicast_port), ret_id
+	mcsock = common.createMulticastSocket(multicast_port)
+	common.joinMulticastGroup(mcsock, multicast_group)
+	return mcsock, ret_id
 
 #
 #
@@ -176,7 +170,7 @@ def sendThroughSocket(sock, to_send, delim='\n\n', wait_for_response=True):
 	msg = ''
 	
 	try:
-		sock.send(to_send)
+		sock.sendall(to_send)
 		logging.debug('Message sent to server')
 
 		if wait_for_response:
@@ -223,7 +217,7 @@ def setUpLogger():
 	Sets up the loggin module.
 
 	"""
-	global options
+	options = gdata.getCommandLineOptions()
 
 	lvl = logging.DEBUG if options.debug else logging.INFO
 	#format = '[%(levelname)s] (%(asctime)s): %(message)s'
@@ -252,7 +246,7 @@ class AutoUpdater(threading.Thread):
 		logging.debug('Updater thread started')
 
 		while True:
-			self.update(createTCPSocket(self.host, self.port), self.sinfo, self.client_id)
+			self.update(socket.create_connection((self.host, self.port)), self.sinfo, self.client_id)
 
 			if self.awakener.wait(self.tbu): # sleep until tbu or someone calls awakener.set()
 				self.awakener.clear() # reset the internal flag
@@ -268,29 +262,6 @@ class AutoUpdater(threading.Thread):
 #
 if __name__ == '__main__':
 
-	parser = argparse.ArgumentParser(
-				usage=globals()['__doc__'],
-				version=__version__,
-				description='Remote resource monitoring tool client')
-
-	parser.add_argument('-host', required=True, help='server host name/ip')
-
-	parser.add_argument('-port', required=True, type=int, help='server port')
-
-	parser.add_argument('-listenport', required=True, type=int, help='port to bind the client and wait for commands')
-
-	parser.add_argument('-timeout', required=False, type=int, help='connection timeout')
-
-	parser.add_argument('-tbu', required=False, type=float, 
-				help='time between every update sent to the server (default: 0.5)', default=0.5)
-
-	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
-				default=sys.stderr, 
-				help='logging file (default [stderr])')
-
-	parser.add_argument('-d', '--debug', action='store_true', default=False,
-				help='sets the loggin leve to DEBUG')
-
-	options = parser.parse_args()
+	gdata.initCliCommandLineOptions(sys.argv[1:], __version__)
 
 	main()
