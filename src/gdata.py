@@ -9,6 +9,7 @@ SOCK_MAX_PORT = 49152
 DEF_CON_TIMEOUT = 3.0
 DEF_LISTEN_QUEUE_SIZE = 100
 DEF_LISTEN_IFACE = '0.0.0.0'
+DEF_MAX_TIME_GC = 30.0
 
 # Greeting messages client/server 
 SOH = '%c' % 0x1

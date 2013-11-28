@@ -38,10 +38,12 @@ def main():
 
 	try:
 		# Starts the data base garbage collector
-		db_gc = srvdata.DBGarbageCollector(opt.data_life_time / 2 ,
-											opt.data_life_time)
+		# In order to clean the memory regularly the gc will run at most every
+		# 30 seconds
+		gc_time = min(opt.data_life_time / 2, gdata.DEF_MAX_TIME_GC) 
+		db_gc = srvdata.DBGarbageCollector(gc_time, opt.data_life_time)
 		db_gc.start()
-		logging.info("DB Garbage collector started")
+		logging.info("DB Garbage collector started (runs every: %fs)" % gc_time)
 
 		# Starts runs the main loop, close all the sockets at exit
 		mainLoop(mon_sock, cli_sock, m_sock)
