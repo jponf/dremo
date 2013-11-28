@@ -22,26 +22,77 @@ __status__ = "Development"
 
 
 def main():
-	options = gdata.getCommandLineOptions()
-
 	setUpLogger()
-	logging.info('Logging set up')
-	logging.debug('Host to connect to: %s ' % options.broker_host)
-	logging.debug('Port to connect to: %s' % options.broker_port)
+	printCommandLineOptions()
 
+	# SysInfo data
 	sinfo = common.SysInfo()
 	sinfo.update()
 	awakener = threading.Event()
 
-	mcsock, client_id = beginConnection(options.broker_host, options.broker_port, sinfo)
+	# Sockets to listen to
+	mcsock = None
+	listen_sock = None
 
-	auto_update = AutoUpdater(options.time_between_updates, options.broker_host, options.broker_port, client_id, sinfo, awakener)
-	auto_update.start()
+	options = gdata.getCommandLineOptions()
 
-	sock = common.createServerTCPSocket('0.0.0.0', options.listen_port, options.connection_queue_size)
-	in_socks = set([mcsock, sock])
+	try:
+		client_id, multicast_group, multicast_port = beginConnection(options.broker_host, options.broker_port, sinfo)
 
-	_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id)
+		# Start multicast socket
+		mcsock = common.createMulticastSocket(multicast_port)
+		common.joinMulticastGroup(mcsock, multicast_group)
+
+		# Begin auto-updating
+		auto_update = AutoUpdater(options.time_between_updates, options.broker_host, options.broker_port, client_id, sinfo, awakener)
+		auto_update.daemon = True
+		auto_update.start()
+
+		# Create socket to listen to incoming connections
+		sock = common.createServerTCPSocket('0.0.0.0', options.listen_port, options.connection_queue_size)
+		in_socks = set([mcsock, sock])
+
+		# Listen for incoming connections
+		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id)
+
+	except KeyboardInterrupt: 
+		logging.info("Finishing due to KeyboardInterrput")
+	except Exception, e:
+		logging.critical("Finishing due to unknown exception:\n%s" % str(e))
+		if options.debug:
+			import traceback; traceback.print_exc(sys.stderr)
+	finally:
+		if listen_sock: 
+			listen_sock.close()
+			logging.info("Commands socket closed")
+
+#
+#
+def beginConnection(host, port, sinfo):
+	hello = '%c %s %c %s %c' %(gdata.BEL, port, gdata.ETX, buildXML(sinfo), gdata.ETX)
+
+	try:
+		ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port)), hello)
+		
+		if ret_code == gdata.K_OK:
+			ret_id, multicast_group, multicast_port  = response.split()
+			multicast_port = int(multicast_port)
+
+			logging.debug('Received client ID: %s' % ret_id)
+			logging.debug('Received multicast group: %s' % multicast_group)
+			logging.debug('Received multicast port: %d' % multicast_port)
+
+		else:
+			if ret_code:
+				logging.info('Error: %s' % ret_code)
+			else:
+				logging.info('Unknown error')
+			sys.exit(1)
+	except socket.error, e:
+		logging.critical("Error connecting to the broker: %s" % str(e))
+		sys.exit(-1)
+	
+	return ret_id, multicast_group, multicast_port
 
 #
 #
@@ -79,88 +130,54 @@ def _processInstruction(sock, connection_type, awakener, sinfo, client_id):
 #
 #
 def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_type=''):
-	if helper.isCmdUpdate(instruction):
-			sock.sendall(helper.getOkMessage())
-			awakener.set()
-			logging.debug('Requested update sent')
+	try:
+		if helper.isCmdUpdate(instruction):
+				sock.sendall(helper.getOkMessage())
+				awakener.set()
+				logging.debug('Requested update sent')
 
-	elif not connection_type and helper.isCmdGet(instruction):
-		sock.sendall(helper.getOkMessage())
-		sendXML(sock, sinfo, client_id, False)
-		logging.debug('Requested get sent')
-		
-	else:
-		sock.send(getUnknownCmdError('Unknown command'))
-		logging.debug('Request error sent')
+		elif not connection_type and helper.isCmdGet(instruction):
+			sock.sendall(helper.getOkMessage())
+			sendXML(sock, sinfo, client_id, False)
+			logging.debug('Requested get sent')
+			
+		else:
+			sock.send(helper.getUnknownCmdError('Unknown command'))
+			logging.debug('Request error sent')
+
+	except socket.error, e:
+		pass
 
 #
 #
 def _updateFromOther(sock, instruction, params):
-	ip, port = params.strip().split(':')
-	port = int(port)
-	response = ''
-
 	try:
+		ip, port = params.strip().split(':')
+		port = int(port)
+
+		response = ''
+
 		sock_to_other = socket.create_connection((ip, port))
 		sock_to_other.sendall(instruction + '\n')
 
 		msg = common.recvEnd(sock_to_other, '\n\n')	
 		response_head, sep, rest = msg.partition(' ')
 
-		if response_head == '200':
+		if response_head == gdata.K_OK:
 			msg = common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
 			msg += common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
 
-	except:
-		response = helper.getMonitorUnreachableError('Connection failed')
+	except ValueError:
+		msg = helper.getUnknownCmdError('Bad formatted parameters')
+	except socket.error, e:
+		msg = helper.getMonitorUnreachableError('Connection failed')
 
 	finally:
 		try:
-			sock_to_other.close()
 			sendThroughSocket(sock, msg, wait_for_response=False)
-			#sock.sendall(msg)
+			sock_to_other.close()
 		except:
 			logging.debug('Error sending other client\'s data')
-
-#
-#
-def beginConnection(host, port, sinfo):
-	hello = '%c %s %c %s %c' %(gdata.BEL, port, gdata.ETX, buildXML(sinfo), gdata.ETX)
-
-	ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port)), hello)
-	
-	if ret_code == '200':
-		ret_id, multicast_group, multicast_port  = response.split()
-		multicast_port = int(multicast_port)
-
-		logging.debug('Received client ID: %s' % ret_id)
-		logging.debug('Received multicast group: %s' % multicast_group)
-		logging.debug('Received multicast port: %d' % multicast_port)
-
-	else:
-		if ret_code:
-			logging.info('Error: %s' % ret_code)
-		else:
-			logging.info('Unknown error')
-		sys.exit(1)
-
-	mcsock = common.createMulticastSocket(multicast_port)
-	common.joinMulticastGroup(mcsock, multicast_group)
-	return mcsock, ret_id
-
-#
-#
-def _initMulticast(group, port):
-	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # more than one sock can use this port
-	sock.bind(('', port))
-	
-	mreq = struct.pack("4sl", socket.inet_aton(group), socket.INADDR_ANY)
-
-	sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-	logging.debug('Multicast socket connected to %s:%d' %(group, port))
-
-	return sock
 
 #
 #
@@ -185,9 +202,9 @@ def sendThroughSocket(sock, to_send, delim='\n\n', wait_for_response=True):
 			logging.debug('Response from the server (response code): %s %s' % (code, detail))
 			logging.debug('Response from the server (response): %s' % msg)
 
-	except:
+	except socket.error, e:
 		code = helper.getMonitorUnreachableError()
-		msg = 'Connection timed out'
+		msg = 'Connection error'
 
 	return code.strip(), detail.strip(), msg.strip()
 
@@ -258,10 +275,25 @@ class AutoUpdater(threading.Thread):
 		sinfo.update()
 		sendXML(sock, sinfo, client_id)
 
+def printCommandLineOptions():
+	"""printOptions() -> void 
+
+	Prints options to the logging file.
+
+	"""
+	options = gdata.getCommandLineOptions()
+
+	logging.debug("Broker Host: " + options.broker_host)
+	logging.debug("Broker Port: " + str(options.broker_port) )
+	logging.debug("Command interface Port: " + str(options.listen_port) )
+	logging.debug("Connection timeout: " + str(options.connection_timeout) )
+	logging.debug("Connection queue size: " + str(options.connection_queue_size))
+	logging.debug("Time between updates: " + str(options.time_between_updates))
+	logging.debug("Logfile: " + options.logfile.name)
+
 #
 #
 if __name__ == '__main__':
 
 	gdata.initCliCommandLineOptions(sys.argv[1:], __version__)
-
 	main()
