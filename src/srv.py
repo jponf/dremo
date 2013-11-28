@@ -84,11 +84,7 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 	except Exception, e:
 		logging.critical("Finishing due to unknown exception:\n%s" % str(e))
 		if opt.debug:
-<<<<<<< HEAD
 			import traceback; traceback.print_exc(sys.stderr)
-=======
-			import traceback; traceback.print_exc()
->>>>>>> afc0e9f6ba8a5bf4b04242ea8f7be43e1b8f5333
 	finally:
 		logging.info("Waiting threads termination")
 		waitThreads()
