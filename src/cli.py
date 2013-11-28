@@ -149,6 +149,9 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
 	except socket.error, e:
 		pass
 
+	finally:
+		sock.close()	
+
 #
 #
 def _updateFromOther(sock, instruction, params, timeout):
@@ -177,6 +180,7 @@ def _updateFromOther(sock, instruction, params, timeout):
 		try:
 			sendThroughSocket(sock, msg, wait_for_response=False)
 			sock_to_other.close()
+			sock.close()
 		except:
 			logging.debug('Error sending other client\'s data')
 
@@ -274,6 +278,7 @@ class AutoUpdater(threading.Thread):
 	
 		sinfo.update()
 		sendXML(sock, sinfo, client_id)
+		sock.close()
 
 def printCommandLineOptions():
 	"""printOptions() -> void 
