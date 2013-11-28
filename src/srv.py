@@ -15,7 +15,7 @@ import srvhandlers
 # Program Data
 # ------------
 __program__ = "DREMO Server"
-__version__ = '0.5a'
+__version__ = '0.7a'
 __author__ = "Josep Pon Farreny, Marc Piñol Pueyo"
 __license__ = "MIT"
 __status__ = "Development"
@@ -81,6 +81,10 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 
 	except KeyboardInterrupt:
 		logging.info("Finishing due to KeyboardInterrupt")
+	except Exception, e:
+		logging.critical("Finishing due to unknown exception:\n%s" % str(e))
+		if opt.debug:
+			import traceback; traceback.print_exc(sys.stderr)
 	finally:
 		logging.info("Waiting threads termination")
 		waitThreads()
@@ -98,32 +102,30 @@ def setUpSockets():
 
 	"""
 	opt = gdata.getCommandLineOptions()
+	queue_size = opt.connection_queue_size
+	iface = opt.ip
 
-	mon_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	mon_sock = None; cmd_sock = None; mgroup_sock = None
 
 	# Bind conn_sock
 	try:
-		mon_sock.bind((opt.ip, opt.mon_port))
-		mon_sock.listen(opt.connection_queue_size)
-		logging.info('Monitor socket bound to %s:%d' % (opt.ip, opt.mon_port))
+		mon_sock = common.createServerTCPSocket(iface, opt.mon_port, queue_size)
+		logging.info('Monitor socket bound to %s:%d' % (iface, opt.mon_port))
 
-		cli_sock.bind((opt.ip, opt.cli_port))
-		cli_sock.listen(opt.connection_queue_size)
-		logging.info('Client socket bound to %s:%d' % (opt.ip, opt.cli_port))
+		cmd_sock = common.createServerTCPSocket(iface, opt.cmd_port, queue_size)
+		logging.info('Client socket bound to %s:%d' % (iface, opt.cmd_port))
 
+		# Set multicast socket options (only send)
+		mgroup_sock = common.createMulticastSocket(None, opt.multicast_group_ttl)
+		logging.info('Multicas socket created (Not joined)')
+		
 	except socket.error, e:
-		logging.critical("%s [%s]" % (str(e), opt.ip))
-		sys.exit(-1)
+		logging.critical("%s [%s]. Closing sockets" % (str(e), opt.ip))
+		if mon_sock: mon_sock.close()
+		if cmd_sock: cmd_sock.close()
+		sys.exit(-1)	
 
-	# Set multicast socket options (only send)
-	mgroup_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	mgroup_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 
-		opt.multicast_group_ttl)
-	# Avoid receiving own messages
-	# mgroup_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
-
-	return mon_sock, cli_sock, mgroup_sock
+	return mon_sock, cmd_sock, mgroup_sock
 
 def setUpLogging():
 	"""setUpLogging() -> void
@@ -151,7 +153,7 @@ def printCommandLineOptions():
 
 	logging.debug("IP: " + o.ip)
 	logging.debug("Monitors Port: " + str(o.mon_port) )
-	logging.debug("Clients Port: " + str(o.cli_port))
+	logging.debug("Clients Port: " + str(o.cmd_port))
 	logging.debug("Connection timeout: " + str(o.connection_timeout) )
 	logging.debug("Connection queue size: " + str(o.connection_queue_size))
 	logging.debug("Multicast Group: " + o.multicast_group)

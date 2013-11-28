@@ -94,7 +94,9 @@ class MonitorHandler(ThreadWithRegister):
 			sock.sendall( helper.getGenericError(str(e)) )
 		except ValueError, e:
 			sock.sendall( helper.getGenericError(str(e)) )
-
+		except IOError, e:
+			logging.warning("Error sending data to (%s:%d)" 
+				% self.addr)
 		finally:
 			sock.close()
 			logging.debug("Monitor handler closed socket to %s:%s" % self.addr)
@@ -132,8 +134,7 @@ class MonitorHandler(ThreadWithRegister):
 			infoparser.parseXML(data)
 			infodao = infoparser.getSysInfoData()
 			srvdata.updateMonitorData(mid, infodao)
-			self.sock.sendall( helper.getOkMessage("Update successful") )
-		
+			self.sock.sendall( helper.getOkMessage("Update successful") )					
 		else:
 			self.sock.sendall( 
 				helper.getMonitorNotFoundError(
@@ -210,6 +211,8 @@ class CommandHandler(ThreadWithRegister):
 			sock.sendall( helper.getTimeoutError(
 							"Reached timeout of %.1f seconds" % self.timeout) 
 						)
+		except IOError:
+			logging.warning("Error sending data to %s:%d" % self.addr)
 		finally:
 			sock.close()
 			logging.debug("Command handler closed socket to %s:%s" % self.addr)
@@ -301,7 +304,7 @@ class CommandHandler(ThreadWithRegister):
 	## Sends the update message throug the multicast channel
 	def _sendUpdateAll(self):
 		logging.debug("Sending update to the mulsticast group %s:%d" 
-			% (self.mg_ip, self.mg_port))
+						% (self.mg_ip, self.mg_port))
 
 		msg = "%s\n" % gdata.CMD_UPDATE
 
