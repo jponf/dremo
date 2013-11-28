@@ -1,16 +1,20 @@
 #
 # -*- coding: utf-8 -*-
 
-# 
+# Range of operable ports (in general)
 SOCK_MIN_PORT = 512
 SOCK_MAX_PORT = 49152
+
+# Default values
+DEF_CON_TIMEOUT = 3.0
+DEF_LISTEN_QUEUE_SIZE = 100
+DEF_LISTEN_IFACE = '0.0.0.0'
 
 # Greeting messages client/server 
 SOH = '%c' % 0x1
 STX = '%c' % 0x2
 ETX = '%c' % 0x3
 BEL = '%c' % 0x7
-
 
 # Fixed ports
 SERVER_PORT = 6666
@@ -66,20 +70,21 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 				version=version,
 				description='Remote resource monitoring tool client')
 
-	parser.add_argument('-ip', default='0.0.0.0', 
+	parser.add_argument('-ip', default=DEF_LISTEN_IFACE, 
 				help='server listen interface ip')
 
-	parser.add_argument('-mon_port', default=6666, type=int,
+	parser.add_argument('-mon-port', default=6666, type=int,
 				help='monitors listen port')
 
-	parser.add_argument('-cli_port', default=6665, type=int,
-				help='clients listen port')
+	parser.add_argument('-cmd-port', default=6665, type=int,
+				help='commands interface port')
 
-	parser.add_argument('-cto', '--connection-timeout', default=3, type=float,
-				help='client connection timeout')
+	parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
+				type=float,	help='client connection timeout')
 
-	parser.add_argument('-cqs', '--connection-queue-size', default=100, 
-				type=int, help="")
+	parser.add_argument('-cqs', '--connection-queue-size', type=int,
+				default=DEF_LISTEN_QUEUE_SIZE, 
+				help="max amount of clients waiting for being accepted")
 
 	parser.add_argument('-mg', '--multicast-group', default='227.123.123.123',
 				help='multicast group ip')
@@ -109,8 +114,56 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 
 #
 #
+def initCliCommandLineOptions(cmd_line_options, version):
+	"""initCliCommandLineOptions(cmd_line_options: [str], version: int) -> void
+
+	Initializes the client options using the given cmd_line_options and makes 
+	them accessible throug getCommandLineOptions()
+
+	"""
+	global options
+
+	parser = argparse.ArgumentParser(
+				usage=globals()['__doc__'],
+				version=version,
+				description='Remote resource monitoring tool client')
+
+	parser.add_argument('-bhost', '--broker-host', required=True,
+			help='broker server host name/ip')
+
+	parser.add_argument('-bport', '--broker-port', required=True,
+			type=int, help='broker server port')
+
+	parser.add_argument('-lip', '--listen-ip', type=str, default=DEF_LISTEN_IFACE,
+			help='IP of the interface used to listen for commands')
+
+	parser.add_argument('-lport', '--listen-port', required=True, type=int, 
+			help='port to bind the client and wait for commands')
+
+	parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
+				type=float,	help='client connection timeout')
+
+	parser.add_argument('-cqs', '--connection-queue-size', type=int,
+				default=DEF_LISTEN_QUEUE_SIZE, 
+				help="max amount of clients waiting for being accepted")
+
+	parser.add_argument('-tbu', '--time-between-updates', type=float,
+			help='time between every update sent to the server (default: 0.5)',
+			default=0.5)
+
+	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
+				default=sys.stderr,  help='logging file (default [stderr])')
+
+	parser.add_argument('-d', '--debug', action='store_true', default=False,
+				help='sets the loggin leve to DEBUG')
+
+	options = parser.parse_args()
+
+#
+#
 def getCommandLineOptions():
 	if options:
 		return options
 
-	raise Exception("Must call initCommandLineOptions() before get the options")
+	raise Exception("Must call initSrvCommandLineOptions() or " \
+					"initCliCommandLineOptions() before get the options")
