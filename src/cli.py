@@ -37,7 +37,8 @@ def main():
 	options = gdata.getCommandLineOptions()
 
 	try:
-		client_id, multicast_group, multicast_port = beginConnection(options.broker_host, options.broker_port, sinfo)
+		client_id, multicast_group, multicast_port = beginConnection(options.broker_host, 
+													options.broker_port, sinfo, options.connection_timeout)
 
 		# Start multicast socket
 		mcsock = common.createMulticastSocket(multicast_port)
@@ -53,7 +54,7 @@ def main():
 		in_socks = set([mcsock, sock])
 
 		# Listen for incoming connections
-		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id)
+		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, options.connection_timeout)
 
 	except KeyboardInterrupt: 
 		logging.info("Finishing due to KeyboardInterrput")
@@ -68,11 +69,11 @@ def main():
 
 #
 #
-def beginConnection(host, port, sinfo):
+def beginConnection(host, port, sinfo, timeout):
 	hello = '%c %s %c %s %c' %(gdata.BEL, port, gdata.ETX, buildXML(sinfo), gdata.ETX)
 
 	try:
-		ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port)), hello)
+		ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port), timeout), hello)
 		
 		if ret_code == gdata.K_OK:
 			ret_id, multicast_group, multicast_port  = response.split()
@@ -96,7 +97,7 @@ def beginConnection(host, port, sinfo):
 
 #
 #
-def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id):
+def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, timeout):
 	while True:
 		i, o , e = select.select(in_socks, [], [])
 
@@ -104,16 +105,16 @@ def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id):
 			if s is sock:
 				ns, addr = s.accept()
 				logging.info('New request from %s:%d' % addr)
-				_processInstruction(ns, 'tcp', awakener, sinfo, client_id)
+				_processInstruction(ns, 'tcp', awakener, sinfo, client_id, timeout)
 				
 			elif s is mcsock:
 				ns, addr = s.accept()
 				logging.info('New multicast request')
-				_processInstruction(ns, 'mc', awakener, sinfo, client_id)
+				_processInstruction(ns, 'mc', awakener, sinfo, client_id, timeout)
 
 #
 #
-def _processInstruction(sock, connection_type, awakener, sinfo, client_id):
+def _processInstruction(sock, connection_type, awakener, sinfo, client_id, timeout):
 	instruction = common.recvEnd(sock, '\n').strip()
 	logging.debug('Received instruction %s by %s' % (instruction, connection_type))
 	instruction, sec, params = instruction.partition(' ')
@@ -122,7 +123,7 @@ def _processInstruction(sock, connection_type, awakener, sinfo, client_id):
 		if not params:
 			_updateFromSelf(sock, instruction, awakener, sinfo, client_id)
 		else:
-			_updateFromOther(sock, instruction, params)
+			_updateFromOther(sock, instruction, params, timeout)
 
 	else:
 		_updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_type)
@@ -148,16 +149,19 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
 	except socket.error, e:
 		pass
 
+	finally:
+		sock.close()	
+
 #
 #
-def _updateFromOther(sock, instruction, params):
+def _updateFromOther(sock, instruction, params, timeout):
 	try:
 		ip, port = params.strip().split(':')
 		port = int(port)
 
 		response = ''
 
-		sock_to_other = socket.create_connection((ip, port))
+		sock_to_other = socket.create_connection((ip, port), timeout)
 		sock_to_other.sendall(instruction + '\n')
 
 		msg = common.recvEnd(sock_to_other, '\n\n')	
@@ -176,6 +180,7 @@ def _updateFromOther(sock, instruction, params):
 		try:
 			sendThroughSocket(sock, msg, wait_for_response=False)
 			sock_to_other.close()
+			sock.close()
 		except:
 			logging.debug('Error sending other client\'s data')
 
@@ -237,7 +242,6 @@ def setUpLogger():
 	options = gdata.getCommandLineOptions()
 
 	lvl = logging.DEBUG if options.debug else logging.INFO
-	#format = '[%(levelname)s] (%(asctime)s): %(message)s'
 	format = '[%(levelname)s]: %(message)s'
 	datefmt='%d/%m/%Y %H:%M:%S'
 
@@ -274,6 +278,7 @@ class AutoUpdater(threading.Thread):
 	
 		sinfo.update()
 		sendXML(sock, sinfo, client_id)
+		sock.close()
 
 def printCommandLineOptions():
 	"""printOptions() -> void 
