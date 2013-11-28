@@ -148,8 +148,8 @@ def initCliCommandLineOptions(cmd_line_options, version):
 				help="max amount of clients waiting for being accepted")
 
 	parser.add_argument('-tbu', '--time-between-updates', type=float,
-			help='time between every update sent to the server (default: 0.5)',
-			default=0.5)
+			help='time between every update sent to the server (default: 2)',
+			default=2.0
 
 	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
 				default=sys.stderr,  help='logging file (default [stderr])')
