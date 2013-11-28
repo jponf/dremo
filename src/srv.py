@@ -26,9 +26,10 @@ __status__ = "Development"
 
 def main():
 
-	# Set logging and print command line options
+	# Set logging, print and check command line options
 	setUpLogging()
 	printCommandLineOptions()
+	checkCommandLineOptions()
 
 	# Get command line options
 	opt = gdata.getCommandLineOptions()
@@ -159,6 +160,38 @@ def setUpLogging():
 
 	logging.basicConfig(stream = options.logfile, level=lvl, format=format,
 						datefmt=datefmt)
+
+def checkCommandLineOptions():
+	"""checkCommandLineOptions() -> void
+
+	Test the correctness of the command line options, if an error is found
+	the program is terminated.
+
+	"""
+	opt = gdata.getCommandLineOptions()
+
+	# Check multicast address
+	try:
+		min_mcast_addr = socket.inet_aton(gdata.SOCK_MIN_MCAST_ADDR)
+		max_mcast_addr = socket.inet_aton(gdata.SOCK_MAX_MCAST_ADDR)
+		mcast_addr = socket.inet_aton(opt.multicast_group)
+	except socket.error:
+		logging.critical(
+			"The given multicast group is not a valid multicast ip")
+		sys.exit(-1)
+
+	# Check life time
+	if opt.data_life_time < opt.connection_timeout * 2:
+		logging.critical(
+			"Data life time must be at least twice the connection life time")
+		sys.exit(-1)
+	# Check multicast range
+	elif mcast_addr < min_mcast_addr or mcast_addr > max_mcast_addr:
+		logging.critical(
+			"The multicast grup addr must be betwen [%s-%s]" 
+			% (gdata.SOCK_MIN_MCAST_ADDR, gdata.SOCK_MAX_MCAST_ADDR)
+		)
+		sys.exit(-1)
 
 def printCommandLineOptions():
 	"""printOptions() -> void 

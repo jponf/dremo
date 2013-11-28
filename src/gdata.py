@@ -4,6 +4,8 @@
 # Range of operable ports (in general)
 SOCK_MIN_PORT = 512
 SOCK_MAX_PORT = 49152
+SOCK_MAX_MCAST_ADDR = '239.255.255.255'
+SOCK_MIN_MCAST_ADDR = '224.1.0.0'
 
 # Default values
 DEF_CON_TIMEOUT = 3.0
@@ -107,11 +109,6 @@ def initSrvCommandLineOptions(cmd_line_options, version):
 				help='sets the loggin leve to DEBUG')
 
 	options = parser.parse_args(cmd_line_options)
-
-	if options.data_life_time < options.connection_timeout * 2:
-		logging.critical(
-			"Data life time must be at least twice the connection life time")
-		sys.exit(-1)
 
 #
 #
