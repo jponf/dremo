@@ -149,7 +149,7 @@ def initCliCommandLineOptions(cmd_line_options, version):
 
 	parser.add_argument('-tbu', '--time-between-updates', type=float,
 			help='time between every update sent to the server (default: 2)',
-			default=2.0
+			default=2.0)
 
 	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
 				default=sys.stderr,  help='logging file (default [stderr])')
