@@ -51,7 +51,7 @@ def isCmdUpdate(msg):
 	Tests if the message is the update command.
 
 	"""
-	return msg.lower() == data.CMD_UPDATE.lower()
+	return msg.lower() == gdata.CMD_UPDATE.lower()
 
 def isCmdUpdateAll(msg):
 	"""isCmdUpdateAll(msg) -> bool
