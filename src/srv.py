@@ -51,6 +51,8 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 	"""
 	opt = gdata.getCommandLineOptions()
 	timeout = opt.connection_timeout
+	mg_ip = opt.multicast_group
+	mg_port = opt.multicast_group_port
 
 	insocks = set([mon_sock, cli_sock])
 	logging.info("Server running press Ctrl+C to Quit!")
@@ -73,7 +75,8 @@ def mainLoop(mon_sock, cli_sock, m_sock):
 					ns, addr = s.accept()
 					logging.debug("New command connexion from %s:%d" % addr)
 
-					t = srvhandlers.CommandHandler(ns, m_sock, timeout)
+					t = srvhandlers.CommandHandler(ns, m_sock, mg_ip, mg_port,
+													timeout)
 					t.start()
 
 	except KeyboardInterrupt:
