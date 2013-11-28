@@ -281,7 +281,7 @@ class CommandHandler(ThreadWithRegister):
 		if code == gdata.K_OK:
 			msg = helper.getOkMessage(desc)
 		else:
-			msg = helper.getGenericError("Received an error from the monitor")
+			msg = helper.getGenericError("Received error: %s" % ret)
 
 		self.sock.sendall(msg)
 
@@ -300,8 +300,18 @@ class CommandHandler(ThreadWithRegister):
 
 	## Sends the update message throug the multicast channel
 	def _sendUpdateAll(self):
-		logging.debug("Sending update to the mulsticast group")
-		self.m_sock.sendto(gdata.CMD_UPDATE, (self.mg_ip, self.mg_port) )
+		logging.debug("Sending update to the mulsticast group %s:%d" 
+			% (self.mg_ip, self.mg_port))
+
+		msg = "%s\n" % gdata.CMD_UPDATE
+
+		snt = self.m_sock.sendto(msg, (self.mg_ip, self.mg_port) )
+
+		if snt == len(msg):
+			self.sock.sendall( helper.getOkMessage('Update all sent') )
+		else:
+			self.sock.sendall( helper.getGenericError(
+								'Error sending to Multicast group'))
 
 	## Generates and sends a list with all the monitors id's
 	def _sendMonitorsList(self):
