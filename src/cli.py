@@ -15,8 +15,8 @@ import thread
 
 
 __program__ = "DREMO Client"
-__version__ = '0.4'
-__author__ = "Josep Pon Farreny, Marc Piñol Pueyo"
+__version__ = '0.6'
+__author__ = "Marc Piñol Pueyo, Josep Pon Farreny"
 __license__ = "MIT"
 __status__ = "Development"
 
@@ -34,35 +34,40 @@ def main():
 	mcsock = None
 	listen_sock = None
 
-	options = gdata.getCommandLineOptions()
+	opt = gdata.getCommandLineOptions()
 
 	try:
-		client_id, multicast_group, multicast_port = beginConnection(options.broker_host, 
-													options.broker_port, sinfo, options.connection_timeout)
+		client_id, multicast_group, multicast_port = beginConnection(
+													opt.broker_host, 
+													opt.broker_port,
+													opt.listen_port,
+													sinfo,
+													opt.connection_timeout)
 
 		# Start multicast socket
 		mcsock = common.createMulticastSocket(multicast_port)
 		common.joinMulticastGroup(mcsock, multicast_group)
 
 		# Begin auto-updating
-		auto_update = AutoUpdater(options.time_between_updates, options.broker_host, 
-								options.broker_port, client_id, sinfo, awakener, 
-								options.connection_timeout, options.update_max_tries)
+		auto_update = AutoUpdater(opt.time_between_updates, opt.broker_host, 
+								opt.broker_port, client_id, sinfo, awakener, 
+								opt.connection_timeout, opt.update_max_tries)
 		auto_update.daemon = True
 		auto_update.start()
 
 		# Create socket to listen to incoming connections
-		sock = common.createServerTCPSocket('0.0.0.0', options.listen_port, options.connection_queue_size)
-		in_socks = set([mcsock, sock])
-
+		sock = common.createServerTCPSocket('0.0.0.0', opt.listen_port,
+											opt.connection_queue_size)
+		
 		# Listen for incoming connections
-		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, options.connection_timeout, options.time_between_updates)
+		_acceptForever(sock, mcsock, awakener, sinfo, client_id,
+					opt.connection_timeout, opt.time_between_updates)
 
 	except KeyboardInterrupt: 
 		logging.info("Finishing due to KeyboardInterrput")
 	except Exception, e:
 		logging.critical("Finishing due to unknown exception:\n%s" % str(e))
-		if options.debug:
+		if opt.debug:
 			import traceback; traceback.print_exc(sys.stderr)
 	finally:
 		if listen_sock: 
@@ -71,11 +76,14 @@ def main():
 
 #
 #
-def beginConnection(host, port, sinfo, timeout):
-	hello = '%c %s %c %s %c' %(gdata.BEL, port, gdata.ETX, buildXML(sinfo), gdata.ETX)
+def beginConnection(host, port, lport, sinfo, timeout):
+	hello = '%c %s %c %s %c' \
+			% (gdata.BEL, lport, gdata.ETX, buildXML(sinfo), gdata.ETX)
 
 	try:
-		ret_code, detail, response = sendThroughSocket(socket.create_connection((host, port), timeout), hello)
+		ret_code, detail, response = sendThroughSocket(
+								socket.create_connection((host, port), timeout),
+								hello)
 		
 		if ret_code == gdata.K_OK:
 			ret_id, multicast_group, multicast_port  = response.split()
@@ -99,7 +107,10 @@ def beginConnection(host, port, sinfo, timeout):
 
 #
 #
-def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, timeout, tbu):
+def _acceptForever(sock, mcsock, awakener, sinfo, client_id, timeout, tbu):
+	
+	in_socks = set([mcsock, sock])
+
 	while True:
 		i, o , e = select.select(in_socks, [], [], tbu)
 
