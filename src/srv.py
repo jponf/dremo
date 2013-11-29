@@ -16,7 +16,7 @@ import srvhandlers
 # Program Data
 # ------------
 __program__ = "DREMO Server"
-__version__ = '0.7a'
+__version__ = '0.8'
 __author__ = "Josep Pon Farreny, Marc Piñol Pueyo"
 __license__ = "MIT"
 __status__ = "Development"

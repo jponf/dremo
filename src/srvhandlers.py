@@ -128,13 +128,14 @@ class MonitorHandler(ThreadWithRegister):
 			srvdata.keepAliveMonitor(mid)
 
 			data = common.recvEnd(self.sock, gdata.ETX).strip()
-			logging.debug("%s:%d Data:\n%s" % (self.addr[0], self.addr[1], data))
+			#logging.debug("%s:%d Data:\n%s" % (self.addr[0], self.addr[1], data))
 
 			infoparser = common.SysInfoXMLParser()
 			infoparser.parseXML(data)
 			infodao = infoparser.getSysInfoData()
 			srvdata.updateMonitorData(mid, infodao)
 			self.sock.sendall( helper.getOkMessage("Update successful") )					
+			logging.debug("Update %s successful" % mid)
 		else:
 			self.sock.sendall( 
 				helper.getMonitorNotFoundError(
@@ -227,8 +228,7 @@ class CommandHandler(ThreadWithRegister):
 
 			data = "IP: %s\nPORT: %s\n%s" % (ip, port, xmlbuilder.getAsString())
 
-			msg = helper.getOkMessage('Data of %s' % mid, 
-										xmlbuilder.getAsString())
+			msg = helper.getOkMessage('Data of %s' % mid, data)
 			self.sock.sendall( msg )
 		else:
 			self.sock.sendall( 
@@ -293,12 +293,14 @@ class CommandHandler(ThreadWithRegister):
 		mlist = srvdata.getAllMonitorsData()
 		xmlbuilder = common.SysInfoXMLBuilder()
 
-		data = ''
+		data = []
 		for sinfodao, ip, port in mlist:
 			xmlbuilder.setXMLData(sinfodao)
-			data += "IP: %s\nPORT: %s\n%s" % (ip, port, xmlbuilder.getAsString())
+			data.append("IP: %s\nPORT: %s\n%s"
+						% (ip, port, xmlbuilder.getAsString()) )
 
-		msg = helper.getOkMessage('Here goes the data', data)
+		strdata = '\n'.join(data)
+		msg = helper.getOkMessage('Here goes the data', strdata)
 		self.sock.sendall( msg )
 
 	## Sends the update message throug the multicast channel
