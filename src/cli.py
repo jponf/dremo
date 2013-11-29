@@ -151,8 +151,10 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
                 logging.debug('Requested update sent')
 
         elif not connection_type and helper.isCmdGet(instruction):
-            sock.sendall(helper.getOkMessage())
-            sendXML(sock, sinfo, client_id, False)
+        	  
+            sock.sendall(helper.getOkMessage('', '%c %s %c %s %c' % (gdata.SOH, client_id, 
+            									gdata.ETX, buildXML(sinfo), gdata.ETX)))
+
             logging.debug('Requested get sent')
 
         else:
@@ -177,12 +179,11 @@ def _updateFromOther(sock, instruction, params, timeout):
         sock_to_other = socket.create_connection((ip, port), timeout)
         sock_to_other.sendall(instruction + '\n')
 
-        msg = common.recvEnd(sock_to_other, '\n\n') 
+        msg = common.recvEnd(sock_to_other, '\n\n').strip()
         response_head, sep, rest = msg.partition(' ')
 
         if response_head == gdata.K_OK:
-            msg = common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
-            msg += common.recvEnd(sock_to_other, gdata.ETX) + gdata.ETX
+            desc, sep, msg = msg.partition('\n')
 
     except ValueError:
         msg = helper.getUnknownCmdError('Bad formatted parameters')
