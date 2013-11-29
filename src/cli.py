@@ -5,7 +5,6 @@ import sys
 import common
 import gdata
 import logging
-import argparse
 import socket
 import threading    
 import time
@@ -179,11 +178,11 @@ def _updateFromOther(sock, instruction, params, timeout):
         sock_to_other = socket.create_connection((ip, port), timeout)
         sock_to_other.sendall(instruction + '\n')
 
-        msg = common.recvEnd(sock_to_other, '\n\n').strip()
+        msg = common.recvEnd(sock_to_other, '\n\n') + '\n\n'
         response_head, sep, rest = msg.partition(' ')
 
-        if response_head == gdata.K_OK:
-            desc, sep, msg = msg.partition('\n')
+        if response_head != gdata.K_OK:
+            msg = helper.getGenericError('Bad response')
 
     except ValueError:
         msg = helper.getUnknownCmdError('Bad formatted parameters')
