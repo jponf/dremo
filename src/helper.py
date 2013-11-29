@@ -84,9 +84,9 @@ def getOkMessage(ok_desc = '', data = ''):
 
     """
     if data:
-        return ("%s OK %s\n%s\n\n" % (gdata.K_OK, ok_desc, data))
+        return ("%s %s\n%s\n\n" % (gdata.K_OK, ok_desc, data))
     else:
-        return ("%s OK %s\n\n" % (gdata.K_OK, ok_desc))
+        return ("%s %s\n\n" % (gdata.K_OK, ok_desc))
 
 def getErrorMessage(err_code, err_msg):
     """getErrorMessage(err_code: str, err_msg: str) -> str
