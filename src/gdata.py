@@ -61,111 +61,111 @@ options = None
 #
 #
 def initSrvCommandLineOptions(cmd_line_options, version):
-	"""initSrvCommandLineOptions(cmd_line_options: [str], version: int) -> void
+    """initSrvCommandLineOptions(cmd_line_options: [str], version: int) -> void
 
-	Initializes the server options using the given cmd_line_options and makes 
-	them accessible throug getCommandLineOptions()
+    Initializes the server options using the given cmd_line_options and makes 
+    them accessible throug getCommandLineOptions()
 
-	"""
-	global options
+    """
+    global options
 
-	parser = argparse.ArgumentParser(
-				usage=globals()['__doc__'],
-				version=version,
-				description='Remote resource monitoring tool client')
+    parser = argparse.ArgumentParser(
+                usage=globals()['__doc__'],
+                version=version,
+                description='Remote resource monitoring tool client')
 
-	parser.add_argument('-ip', default=DEF_LISTEN_IFACE, 
-				help='server listen interface ip')
+    parser.add_argument('-ip', default=DEF_LISTEN_IFACE, 
+                help='server listen interface ip')
 
-	parser.add_argument('-mon-port', default=6666, type=int,
-				help='monitors listen port')
+    parser.add_argument('-mon-port', default=6666, type=int,
+                help='monitors listen port')
 
-	parser.add_argument('-cmd-port', default=6665, type=int,
-				help='commands interface port')
+    parser.add_argument('-cmd-port', default=6665, type=int,
+                help='commands interface port')
 
-	parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
-				type=float,	help='client connection timeout')
+    parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
+                type=float, help='client connection timeout')
 
-	parser.add_argument('-cqs', '--connection-queue-size', type=int,
-				default=DEF_LISTEN_QUEUE_SIZE, 
-				help="max amount of clients waiting for being accepted")
+    parser.add_argument('-cqs', '--connection-queue-size', type=int,
+                default=DEF_LISTEN_QUEUE_SIZE, 
+                help="max amount of clients waiting for being accepted")
 
-	parser.add_argument('-mg', '--multicast-group', default='227.123.123.123',
-				help='multicast group ip')
+    parser.add_argument('-mg', '--multicast-group', default='227.123.123.123',
+                help='multicast group ip')
 
-	parser.add_argument('-mgp', '--multicast-group-port', default=7777,
-				type=int, help='multicast group port')
+    parser.add_argument('-mgp', '--multicast-group-port', default=7777,
+                type=int, help='multicast group port')
 
-	parser.add_argument('-mgttl', '--multicast-group-ttl', type=int, default=16,
-				help='multicast group packets ttl')
+    parser.add_argument('-mgttl', '--multicast-group-ttl', type=int, default=16,
+                help='multicast group packets ttl')
 
-	parser.add_argument('-dlt', '--data-life-time', type=float, default=10.0,
-				help='monitors data life time before discard it')
+    parser.add_argument('-dlt', '--data-life-time', type=float, default=10.0,
+                help='monitors data life time before discard it')
 
-	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
-				default=sys.stderr, 
-				help='Logging file (default [stderr])')
+    parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
+                default=sys.stderr, 
+                help='Logging file (default [stderr])')
 
-	parser.add_argument('-d', '--debug', action='store_true', default=False,
-				help='sets the loggin leve to DEBUG')
+    parser.add_argument('-d', '--debug', action='store_true', default=False,
+                help='sets the loggin leve to DEBUG')
 
-	options = parser.parse_args(cmd_line_options)
+    options = parser.parse_args(cmd_line_options)
 
 #
 #
 def initCliCommandLineOptions(cmd_line_options, version):
-	"""initCliCommandLineOptions(cmd_line_options: [str], version: int) -> void
+    """initCliCommandLineOptions(cmd_line_options: [str], version: int) -> void
 
-	Initializes the client options using the given cmd_line_options and makes 
-	them accessible throug getCommandLineOptions()
+    Initializes the client options using the given cmd_line_options and makes 
+    them accessible throug getCommandLineOptions()
 
-	"""
-	global options
+    """
+    global options
 
-	parser = argparse.ArgumentParser(
-				usage=globals()['__doc__'],
-				version=version,
-				description='Remote resource monitoring tool client')
+    parser = argparse.ArgumentParser(
+                usage=globals()['__doc__'],
+                version=version,
+                description='Remote resource monitoring tool client')
 
-	parser.add_argument('-bhost', '--broker-host', required=True,
-			help='broker server host name/ip')
+    parser.add_argument('-bhost', '--broker-host', required=True,
+            help='broker server host name/ip')
 
-	parser.add_argument('-bport', '--broker-port', required=True,
-			type=int, help='broker server port')
+    parser.add_argument('-bport', '--broker-port', required=True,
+            type=int, help='broker server port')
 
-	parser.add_argument('-lip', '--listen-ip', type=str, default=DEF_LISTEN_IFACE,
-			help='IP of the interface used to listen for commands')
+    parser.add_argument('-lip', '--listen-ip', type=str, default=DEF_LISTEN_IFACE,
+            help='IP of the interface used to listen for commands')
 
-	parser.add_argument('-lport', '--listen-port', required=True, type=int, 
-			help='port to bind the client and wait for commands')
+    parser.add_argument('-lport', '--listen-port', required=True, type=int, 
+            help='port to bind the client and wait for commands')
 
-	parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
-				type=float,	help='client connection timeout')
+    parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
+                type=float, help='client connection timeout')
 
-	parser.add_argument('-umt', '--update-max-tries', default=DEF_MAX_UPDATE_TRIES,
-				type=int,	help='maximum times to try to update')
+    parser.add_argument('-umt', '--update-max-tries', default=DEF_MAX_UPDATE_TRIES,
+                type=int,   help='maximum times to try to update')
 
-	parser.add_argument('-cqs', '--connection-queue-size', type=int,
-				default=DEF_LISTEN_QUEUE_SIZE, 
-				help="max amount of clients waiting for being accepted")
+    parser.add_argument('-cqs', '--connection-queue-size', type=int,
+                default=DEF_LISTEN_QUEUE_SIZE, 
+                help="max amount of clients waiting for being accepted")
 
-	parser.add_argument('-tbu', '--time-between-updates', type=float,
-			help='time between every update sent to the server (default: 2)',
-			default=2.0)
+    parser.add_argument('-tbu', '--time-between-updates', type=float,
+            help='time between every update sent to the server (default: 2)',
+            default=2.0)
 
-	parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
-				default=sys.stderr,  help='logging file (default [stderr])')
+    parser.add_argument('-lf', '--logfile', type=argparse.FileType('a'),
+                default=sys.stderr,  help='logging file (default [stderr])')
 
-	parser.add_argument('-d', '--debug', action='store_true', default=False,
-				help='sets the loggin leve to DEBUG')
+    parser.add_argument('-d', '--debug', action='store_true', default=False,
+                help='sets the loggin leve to DEBUG')
 
-	options = parser.parse_args()
+    options = parser.parse_args()
 
 #
 #
 def getCommandLineOptions():
-	if options:
-		return options
+    if options:
+        return options
 
-	raise Exception("Must call initSrvCommandLineOptions() or " \
-					"initCliCommandLineOptions() before get the options")
+    raise Exception("Must call initSrvCommandLineOptions() or " \
+                    "initCliCommandLineOptions() before get the options")

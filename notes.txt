@@ -1,7 +1,11 @@
 Implementation ideas:
-	- Messages encode: XML
+
+	- Messages encode
+		- System information: XML
+		- Simple text protocol for commands and responses
 
 	- Passive Server (accept connections and answer petitions)
+		- Only asks for data on demand 
 
 	- Timestamps in UTC format
 
@@ -9,14 +13,16 @@ Implementation ideas:
 		- Times:
 			- Max time between notifications: 3s (+/-)
 	
-	- Server checks last update timer to force an update
+	- Server checks last update time to decide whether a monitor
+	  is "dead"
 		- Times:
 			- Periodically check if clients data is too old (+/- 3s)
 
-	- Stateful server
-
 	- Connection protocol TCP (connects-send data-close)
-		- Max time without interaction (1..3s)
+		- Max time without interaction (1..3s) [Parametrized]
+
+	- Stateful server
+		- Data life time of at least twice the max connection time
 
 	- Multicast Broker notify all clients 
 
