@@ -12,6 +12,7 @@ DEF_CON_TIMEOUT = 3.0
 DEF_LISTEN_QUEUE_SIZE = 100
 DEF_LISTEN_IFACE = '0.0.0.0'
 DEF_MAX_TIME_GC = 30.0
+DEF_MAX_UPDATE_TRIES = 5
 
 # Greeting messages client/server 
 SOH = '%c' % 0x1
@@ -140,6 +141,9 @@ def initCliCommandLineOptions(cmd_line_options, version):
 
 	parser.add_argument('-cto', '--connection-timeout', default=DEF_CON_TIMEOUT,
 				type=float,	help='client connection timeout')
+
+	parser.add_argument('-umt', '--update-max-tries', default=DEF_MAX_UPDATE_TRIES,
+				type=int,	help='maximum times to try to update')
 
 	parser.add_argument('-cqs', '--connection-queue-size', type=int,
 				default=DEF_LISTEN_QUEUE_SIZE, 

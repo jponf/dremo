@@ -7,11 +7,11 @@ import gdata
 import logging
 import argparse
 import socket
-import struct
 import threading	
 import time
 import select
 import helper
+import thread
 
 
 __program__ = "DREMO Client"
@@ -45,7 +45,9 @@ def main():
 		common.joinMulticastGroup(mcsock, multicast_group)
 
 		# Begin auto-updating
-		auto_update = AutoUpdater(options.time_between_updates, options.broker_host, options.broker_port, client_id, sinfo, awakener)
+		auto_update = AutoUpdater(options.time_between_updates, options.broker_host, 
+								options.broker_port, client_id, sinfo, awakener, 
+								options.connection_timeout, options.update_max_tries)
 		auto_update.daemon = True
 		auto_update.start()
 
@@ -54,7 +56,7 @@ def main():
 		in_socks = set([mcsock, sock])
 
 		# Listen for incoming connections
-		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, options.connection_timeout)
+		_acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, options.connection_timeout, options.time_between_updates)
 
 	except KeyboardInterrupt: 
 		logging.info("Finishing due to KeyboardInterrput")
@@ -97,9 +99,9 @@ def beginConnection(host, port, sinfo, timeout):
 
 #
 #
-def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, timeout):
+def _acceptForever(in_socks, sock, mcsock, awakener, sinfo, client_id, timeout, tbu):
 	while True:
-		i, o , e = select.select(in_socks, [], [])
+		i, o , e = select.select(in_socks, [], [], tbu)
 
 		for s in i:
 			if s is sock:
@@ -141,7 +143,7 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
 			sock.sendall(helper.getOkMessage())
 			sendXML(sock, sinfo, client_id, False)
 			logging.debug('Requested get sent')
-			
+
 		else:
 			sock.send(helper.getUnknownCmdError('Unknown command'))
 			logging.debug('Request error sent')
@@ -251,7 +253,7 @@ def setUpLogger():
 #
 #
 class AutoUpdater(threading.Thread):
-	def __init__(self, tbu, host, port, client_id, sinfo, awakener):
+	def __init__(self, tbu, host, port, client_id, sinfo, awakener, timeout, max_tries):
 		threading.Thread.__init__(self)
 
 		self.tbu = tbu
@@ -260,6 +262,9 @@ class AutoUpdater(threading.Thread):
 		self.client_id = client_id
 		self.sinfo = sinfo
 		self.awakener = awakener
+		self.timeout = timeout
+		self.max_tries = max_tries
+		self.tries = 0
 
 	#
 	#
@@ -267,18 +272,36 @@ class AutoUpdater(threading.Thread):
 		logging.debug('Updater thread started')
 
 		while True:
-			self.update(socket.create_connection((self.host, self.port)), self.sinfo, self.client_id)
+			try:
+				sock = socket.create_connection((self.host, self.port), self.timeout)
+				self.update(sock, self.sinfo, self.client_id)
 
-			if self.awakener.wait(self.tbu): # sleep until tbu or someone calls awakener.set()
-				self.awakener.clear() # reset the internal flag
+				self.tries = 0
+
+			except socket.error, e:
+				logging.info('Error creating socket to the server')
+
+			finally:
+				if self.awakener.wait(self.tbu): # sleep until tbu or someone calls awakener.set()
+					self.awakener.clear() # reset the internal flag
+				if self.tries > self.max_tries:
+					logging.info('Server unreachable')
+					thread.interrupt_main()
 
 	#
 	#
 	def update(self, sock, sinfo, client_id):  
-	
-		sinfo.update()
-		sendXML(sock, sinfo, client_id)
-		sock.close()
+		try:
+			sinfo.update()
+			code, stuff, stuff = sendXML(sock, sinfo, client_id)
+			sock.close()
+		except socket.error, e:
+			logging.debug('Error sending update to the server')
+
+		if code == gdata.K_ERR_MONITOR_UNREACHABLE:
+			logging.info('Client kicked from server. To avoid this try reducing the time between updates.')
+			thread.interrupt_main()
+			#os._exit(1)
 
 def printCommandLineOptions():
 	"""printOptions() -> void 
