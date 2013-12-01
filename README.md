@@ -1,7 +1,21 @@
 dremo
 =====
 
-Simple resource monitor oriented to monitorize the resources of a distributed system
+Simple resource monitor oriented to monitorize the resources of different machines
+
+## Structure ##
+
+The "monitor" have two main components the broker and the monitors.
+
+To run the broker simply execute the the file:
+
+	src/srv.py
+
+To run a monitor execute the file:
+
+	src/cli.py
+	
+To see all the possible parameters add the flag **-h** when executing any of the components.
 
 ## Requirements ##
 
