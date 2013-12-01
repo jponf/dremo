@@ -119,7 +119,6 @@ def _acceptForever(sock, mcsock, awakener, sinfo, client_id, timeout, tbu):
                 _processInstruction(ns, 'tcp', awakener, sinfo, client_id, timeout)
                 
             elif s is mcsock:
-                #ns, addr = s.accept()
                 logging.info('New multicast request')
                 _processInstruction(s, 'mc', awakener, sinfo, client_id, timeout)
 
@@ -323,7 +322,6 @@ class AutoUpdater(threading.Thread):
         if code == gdata.K_ERR_MONITOR_UNREACHABLE:
             logging.info('Client kicked from server. To avoid this try reducing the time between updates.')
             thread.interrupt_main()
-            #os._exit(1)
 
 def printCommandLineOptions():
     """printOptions() -> void 
