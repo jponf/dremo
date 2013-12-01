@@ -7,7 +7,6 @@ import gdata
 import logging
 import socket
 import threading    
-import time
 import select
 import helper
 import thread
