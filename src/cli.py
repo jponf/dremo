@@ -119,22 +119,22 @@ def _acceptForever(sock, mcsock, awakener, sinfo, client_id, timeout, tbu):
                 _processInstruction(ns, 'tcp', awakener, sinfo, client_id, timeout)
                 
             elif s is mcsock:
-                ns, addr = s.accept()
+                #ns, addr = s.accept()
                 logging.info('New multicast request')
-                _processInstruction(ns, 'mc', awakener, sinfo, client_id, timeout)
+                _processInstruction(s, 'mc', awakener, sinfo, client_id, timeout)
 
 #
 #
 def _processInstruction(sock, connection_type, awakener, sinfo, client_id, timeout):
-    instruction = common.recvEnd(sock, '\n').strip()
+    instruction = common.recvAll(sock).strip()
     logging.debug('Received instruction %s by %s' % (instruction, connection_type))
-    instruction, sec, params = instruction.partition(' ')
+    instr, sec, params = instruction.partition(' ')
 
     if connection_type == 'tcp':
         if not params:
-            _updateFromSelf(sock, instruction, awakener, sinfo, client_id)
+            _updateFromSelf(sock, instr, awakener, sinfo, client_id)
         else:
-            _updateFromOther(sock, instruction, params, timeout)
+            _updateFromOther(sock, instr, params, timeout)
 
     else:
         _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_type)
@@ -144,7 +144,8 @@ def _processInstruction(sock, connection_type, awakener, sinfo, client_id, timeo
 def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_type=''):
     try:
         if helper.isCmdUpdate(instruction):
-                sock.sendall(helper.getOkMessage())
+                if not connection_type:
+                    sock.sendall(helper.getOkMessage())
                 awakener.set()
                 logging.debug('Requested update sent')
 
@@ -163,7 +164,8 @@ def _updateFromSelf(sock, instruction, awakener, sinfo, client_id, connection_ty
         pass
 
     finally:
-        sock.close()    
+        if not connection_type:
+            sock.close()    
 
 #
 #
@@ -298,6 +300,8 @@ class AutoUpdater(threading.Thread):
                 # Attempt reconection
                 if self.tries >= self.max_tries:
                     logging.critical('Server unreachable')
+                    if self.tries >= self.max_tries:
+                        thread.interrupt_main()
                     break
 
                 if self.awakener.wait(self.tbu): # sleep until tbu or someone calls awakener.set()
