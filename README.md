@@ -1,7 +1,6 @@
 dremo
 =====
-
-Simple resource monitor oriented to monitorize the resources of different machines
+Simple test of an application to monitorize different machines
 
 ## Structure ##
 
